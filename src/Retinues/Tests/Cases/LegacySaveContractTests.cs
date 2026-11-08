@@ -23,7 +23,8 @@ namespace Retinues.Tests.Cases
                 "5:MilitiaMelee:TroopSaveData 6:MilitiaMeleeElite:TroopSaveData 7:MilitiaRanged:TroopSaveData " +
                 "8:MilitiaRangedElite:TroopSaveData 9:CaravanGuard:TroopSaveData 10:CaravanMaster:TroopSaveData " +
                 "11:Villager:TroopSaveData 12:PrisonGuard:TroopSaveData 13:Civilians:List<TroopSaveData> " +
-                "14:Bandits:List<TroopSaveData> 15:Heroes:List<TroopSaveData> 16:Mercenaries:List<TroopSaveData> 17:Extras:List<TroopSaveData>");
+                "14:Bandits:List<TroopSaveData> 15:Heroes:List<TroopSaveData> 16:Mercenaries:List<TroopSaveData> 17:Extras:List<TroopSaveData> " +
+                "18:FactionId:String");
             Check(typeof(TroopBodySaveData),
                 "1:AgeMin:Single 2:AgeMax:Single 3:WeightMin:Single 4:WeightMax:Single 5:BuildMin:Single " +
                 "6:BuildMax:Single 7:HeightMin:Single 8:HeightMax:Single");

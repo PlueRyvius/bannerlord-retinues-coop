@@ -86,7 +86,7 @@ namespace Retinues.Troops
         /// <summary>
         /// Collects all defined custom troops before saving.
         /// </summary>
-        private void OnBeforeSave()
+        internal void OnBeforeSave()
         {
             // Collect clan troops: every troop-owning clan, plus any clan whose wrapper still
             // carries troops (e.g. a co-op player's clan while its leader is offline).
@@ -304,7 +304,7 @@ namespace Retinues.Troops
         /// Moves the legacy single clan/kingdom slots into the per-faction lists, as the
         /// main player's entries. Runs only for saves without per-faction data.
         /// </summary>
-        private void MigrateLegacySlots()
+        internal void MigrateLegacySlots()
         {
             if (_clanTroopsByFaction is not null || _kingdomTroopsByFaction is not null)
                 return; // Already per faction; the legacy slots are only a mirror.

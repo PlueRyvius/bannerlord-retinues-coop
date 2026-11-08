@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Linq;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
+using Retinues.Troops;
 using Retinues.Troops.Save;
 using TaleWorlds.CampaignSystem;
 
@@ -136,6 +138,69 @@ namespace Retinues.Tests.Cases
                 Player.ActingHero == Hero.MainHero && Player.Clan == WFaction.Get(Clan.PlayerClan),
                 "Player did not return to the main hero after the scope."
             );
+        }
+
+        private static readonly string[] SlotFields =
+        [
+            "_clanTroops",
+            "_kingdomTroops",
+            "_clanTroopsByFaction",
+            "_kingdomTroopsByFaction",
+        ];
+
+        private static System.Reflection.FieldInfo Slot(string name) =>
+            typeof(FactionBehavior).GetField(
+                name,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic
+            );
+
+        [GameTest(
+            "LegacySlotsMigrate",
+            "owners",
+            "A save from upstream Retinues moves its clan slot to the main player's entry"
+        )]
+        public static void LegacySlotsMigrate()
+        {
+            var behavior = Campaign.Current?.GetCampaignBehavior<FactionBehavior>();
+            Tests.AssertNotNull(behavior, "FactionBehavior is registered.");
+
+            var saved = SlotFields.ToDictionary(n => n, n => Slot(n).GetValue(behavior));
+            try
+            {
+                // Upstream state: only the legacy slot, without a faction id.
+                var legacy = new FactionSaveData(Player.Clan) { FactionId = null };
+                Slot("_clanTroops").SetValue(behavior, legacy);
+                Slot("_kingdomTroops").SetValue(behavior, null);
+                Slot("_clanTroopsByFaction").SetValue(behavior, null);
+                Slot("_kingdomTroopsByFaction").SetValue(behavior, null);
+
+                behavior.MigrateLegacySlots();
+
+                var clans = (List<FactionSaveData>)Slot("_clanTroopsByFaction").GetValue(behavior);
+                Tests.AssertTrue(
+                    clans != null && clans.Count == 1 && ReferenceEquals(clans[0], legacy),
+                    $"Expected the legacy slot as the only clan entry, got {clans?.Count ?? -1}."
+                );
+                Tests.AssertEqual(
+                    Clan.PlayerClan.StringId,
+                    legacy.FactionId,
+                    "Migrated entry is tagged with the main player's clan."
+                );
+
+                // Saving afterwards keeps the main player's data in the legacy slot too.
+                behavior.OnBeforeSave();
+                var mirror = (FactionSaveData)Slot("_clanTroops").GetValue(behavior);
+                Tests.AssertEqual(
+                    Clan.PlayerClan.StringId,
+                    mirror?.FactionId,
+                    "Legacy clan slot mirrors the main player's entry after a save."
+                );
+            }
+            finally
+            {
+                foreach (var kv in saved)
+                    Slot(kv.Key).SetValue(behavior, kv.Value);
+            }
         }
 
         [GameTest(
