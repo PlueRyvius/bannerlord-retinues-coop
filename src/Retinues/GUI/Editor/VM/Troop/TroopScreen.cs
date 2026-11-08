@@ -11,6 +11,7 @@ using Retinues.GUI.Editor.VM.Troop.List;
 using Retinues.GUI.Editor.VM.Troop.Panel;
 using Retinues.GUI.Helpers;
 using Retinues.Managers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.Core.ViewModelCollection.Information;
 using TaleWorlds.Library;
@@ -349,6 +350,10 @@ namespace Retinues.GUI.Editor.VM.Troop
                     affirmativeAction: () =>
                     {
                         var troop = State.Troop;
+
+                        // Co-op: the server removes it; the change arrives with its snapshot.
+                        if (CoopBridge.Relay(CoopActions.Remove, troop.StringId))
+                            return;
 
                         //------------------------------------------------------------------
                         // 1) ROLLBACK ALL STAGED EQUIPMENT CHANGES (ALL SETS, ALL SLOTS)

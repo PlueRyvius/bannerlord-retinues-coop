@@ -6,6 +6,7 @@ using Retinues.Doctrines.Catalog;
 using Retinues.Features.Experience;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Troops;
 using Retinues.Utils;
 
@@ -112,6 +113,11 @@ namespace Retinues.Managers
         /// </summary>
         public static void Convert(WCharacter from, WCharacter to, int amountRequested)
         {
+            if (
+                CoopBridge.Relay(CoopActions.Convert, from?.StringId, to?.StringId, amountRequested)
+            )
+                return;
+
             int max = GetMaxConvertible(from, to);
             int amount = Math.Min(amountRequested, max);
             if (amount <= 0)
@@ -184,6 +190,9 @@ namespace Retinues.Managers
         /// </summary>
         public static void RankUp(WCharacter retinue)
         {
+            if (retinue != null && CoopBridge.Relay(CoopActions.RankUp, retinue.StringId))
+                return;
+
             Log.Info($"Attempting to rank up retinue '{retinue?.Name}'.");
             Log.Info($"Current tier: {retinue?.Tier}, IsMaxTier: {retinue?.IsMaxTier}");
             if (retinue == null || retinue.IsMaxTier)

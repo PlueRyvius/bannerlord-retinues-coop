@@ -377,11 +377,30 @@ namespace Retinues.Troops
         }
 
         /// <summary>
+        /// Import and export are off in a co-op session (v1): the server owns every troop.
+        /// </summary>
+        private static bool OffInCoop()
+        {
+            if (!Mods.Coop.CoopState.InSession)
+                return false;
+            InformationManager.DisplayMessage(
+                new InformationMessage(
+                    L.S("coop_import_export_off", "Troop import and export are off in co-op."),
+                    Colors.Yellow
+                )
+            );
+            return true;
+        }
+
+        /// <summary>
         /// Export flow prompting scope based on context (true = MCM, false = Editor Studio),
         /// then prompt for file name, then export and show a popup.
         /// </summary>
         public static void PromptAndExport(string suggestedName = null)
         {
+            if (OffInCoop())
+                return;
+
             // Unified multiselect: Player Troops (custom clan+kingdom) and Culture Troops
             var elements = new List<InquiryElement>
             {
@@ -455,6 +474,9 @@ namespace Retinues.Troops
         /// </summary>
         public static void PickAndImportUnified(Action afterImport = null)
         {
+            if (OffInCoop())
+                return;
+
             ShowUnifiedPicker(
                 L.S("import_pick_title", "Import Troops"),
                 L.S("import_pick_body", "Select an exported file to import."),

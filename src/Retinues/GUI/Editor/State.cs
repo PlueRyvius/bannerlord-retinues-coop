@@ -7,6 +7,7 @@ using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.Managers;
 using Retinues.Mods;
+using Retinues.Mods.Coop;
 using Retinues.Troops;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
@@ -175,6 +176,9 @@ namespace Retinues.GUI.Editor
                 UpdateEquipment();
                 UpdateSkillData();
                 UpdateSlot();
+
+                // Co-op: appearance edits made on this game go to the server.
+                CoopBridge.SendAppearanceIfChanged(Troop);
 
                 EventManager.Fire(UIEvent.Troop);
             });

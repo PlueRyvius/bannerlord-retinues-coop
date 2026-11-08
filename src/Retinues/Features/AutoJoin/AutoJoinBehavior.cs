@@ -5,6 +5,7 @@ using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.GUI.Helpers;
 using Retinues.Managers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
@@ -105,6 +106,9 @@ namespace Retinues.Features.AutoJoin
 
         private void OnDailyTickParty(MobileParty party)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             var hero = TroopOwners.PlayerOf(party);
             if (hero == null)
                 return; // Not a player's party
@@ -214,6 +218,8 @@ namespace Retinues.Features.AutoJoin
         public static void SetJoinCap(WCharacter troop, int cap)
         {
             if (troop == null || !troop.IsRetinue)
+                return;
+            if (CoopBridge.Relay(CoopActions.JoinCap, troop.StringId, cap))
                 return;
             if (cap <= 0)
                 Instance._caps.Remove(troop.StringId);
