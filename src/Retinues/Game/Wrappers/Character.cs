@@ -57,13 +57,17 @@ namespace Retinues.Game.Wrappers
         /// </summary>
         public static CharacterObject AllocateStub(string stringId = null)
         {
+            // Snapshot as a set: the stub pool is large, so a list lookup per stub would make
+            // every allocation scale with pool size times active troops.
+            var active = new HashSet<string>(ActiveStubIds, StringComparer.Ordinal);
+
             // Try to find by id first
             if (!string.IsNullOrWhiteSpace(stringId))
             {
                 var co = MBObjectManager.Instance.GetObject<CharacterObject>(stringId);
                 if (co != null && co.StringId.StartsWith(CustomIdPrefix))
                 {
-                    if (!ActiveStubIds.Contains(co.StringId)) // not allocated yet
+                    if (!active.Contains(co.StringId)) // not allocated yet
                         return co;
                 }
             }
@@ -71,7 +75,7 @@ namespace Retinues.Game.Wrappers
             // Else find any free stub
             foreach (var co in MBObjectManager.Instance.GetObjectTypeList<CharacterObject>())
                 if (co.StringId.StartsWith(CustomIdPrefix))
-                    if (!ActiveStubIds.Contains(co.StringId)) // not allocated yet
+                    if (!active.Contains(co.StringId)) // not allocated yet
                         return co;
 
             throw new InvalidOperationException("No free stub CharacterObject available.");
