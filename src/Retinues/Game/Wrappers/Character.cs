@@ -1345,6 +1345,10 @@ namespace Retinues.Game.Wrappers
             // Detach skills so parent/clone no longer share the same container
             var freshSkills = (MBCharacterSkills)
                 Activator.CreateInstance(typeof(MBCharacterSkills), nonPublic: true);
+            // Bannerlord Coop skips this constructor on players' games (only its server creates
+            // skill containers), which leaves the skill table null: fill it in.
+            if (freshSkills.Skills == null)
+                Reflector.SetPropertyValue(freshSkills, "Skills", new PropertyOwner<SkillObject>());
             Reflector.SetFieldValue(_co, "DefaultCharacterSkills", freshSkills);
 
             // Skills — raw reads: these values are written back as base values, so reading through
