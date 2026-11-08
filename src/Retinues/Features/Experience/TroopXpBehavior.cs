@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Retinues.Configuration;
 using Retinues.Doctrines;
 using Retinues.Doctrines.Catalog;
+using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.Managers;
 using Retinues.Utils;
@@ -76,8 +77,8 @@ namespace Retinues.Features.Experience
 
         private void OnDailyTickParty(MobileParty mobileParty)
         {
-            if (mobileParty == null || mobileParty.IsMainParty == false)
-                return; // only care about main party
+            if (!TroopOwners.IsPlayerParty(mobileParty))
+                return; // only care about players' own parties
 
             var party = new WParty(mobileParty);
 

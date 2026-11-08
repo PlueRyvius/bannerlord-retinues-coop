@@ -273,7 +273,7 @@ namespace Retinues.Troops
                 return;
             }
 
-            var tpl = FindTemplate(root, tierBonus: faction == Player.Kingdom ? 2 : 0);
+            var tpl = FindTemplate(root, tierBonus: faction.IsKingdom ? 2 : 0);
 
             var retinue = isElite
                 ? new WCharacter(faction, RootCategory.RetinueElite)
@@ -296,9 +296,12 @@ namespace Retinues.Troops
         {
             TextObject to;
 
-            if (faction == Player.Kingdom)
+            if (faction.IsKingdom)
                 if (isElite)
-                    if (Player.IsFemale)
+                    if (
+                        (faction.Base as TaleWorlds.CampaignSystem.Kingdom)?.Leader?.IsFemale
+                        == true
+                    )
                         to = L.T("retinue_female_kingdom", "{FACTION} Queen's Champion");
                     else
                         to = L.T("retinue_male_kingdom", "{FACTION} King's Champion");

@@ -31,7 +31,7 @@ namespace Retinues.Features.Volunteers.Patches
             if (settlement == null || recruiter == null || troop == null || count <= 0)
                 return;
 
-            // Player path is handled by VolunteerSwapForPlayer
+            // The local player's path is handled by VolunteerSwapForPlayer
             if (recruiter.IsHumanPlayerCharacter)
                 return;
 
@@ -47,6 +47,10 @@ namespace Retinues.Features.Volunteers.Patches
             var wHero = new WHero(recruiter);
             bool isPlayerVassal = wHero.PlayerFaction != null;
 
+            // The player clan this recruiter serves: its own clan for a player, otherwise the
+            // ruling clan of its player kingdom.
+            var servedClan = WFaction.Get(TroopOwners.PlayerClanOver(recruiter.Clan));
+
             var playerSphereFaction = wSettlement.PlayerFaction; // clan or kingdom
             bool isPlayerSphereSettlement = playerSphereFaction != null;
 
@@ -59,7 +63,7 @@ namespace Retinues.Features.Volunteers.Patches
             if (isPlayerSphereSettlement && Config.AllLordsCanRecruitCustomTroops)
             {
                 canRecruitCustom = true;
-                customFaction = playerSphereFaction ?? Player.Clan;
+                customFaction = playerSphereFaction ?? servedClan;
             }
 
             // 2) Vassals can recruit custom troops in their fiefs.
@@ -71,7 +75,7 @@ namespace Retinues.Features.Volunteers.Patches
             )
             {
                 canRecruitCustom = true;
-                customFaction = playerSphereFaction ?? Player.Clan;
+                customFaction = playerSphereFaction ?? servedClan;
             }
 
             // 3) Vassals recruit custom troops anywhere.
@@ -83,7 +87,7 @@ namespace Retinues.Features.Volunteers.Patches
             {
                 canRecruitCustom = true;
                 // For "anywhere", use the player's custom faction as the tree owner.
-                customFaction ??= Player.Clan ?? playerSphereFaction;
+                customFaction ??= servedClan ?? playerSphereFaction;
             }
 
             // If we still have no custom faction to map to, this hero does not get customs.
