@@ -51,6 +51,26 @@ namespace Retinues.Game.Wrappers
         /// </summary>
         public static void ClearRegistry() => _registry.Clear();
 
+        /// <summary>
+        /// Unbinds every root troop without touching the troops themselves (no replacement in parties), so the
+        /// faction's troops can be loaded afresh, e.g. from a co-op server's snapshot.
+        /// </summary>
+        public void ClearRoots()
+        {
+            _retinueElite = null;
+            _retinueBasic = null;
+            _rootElite = null;
+            _rootBasic = null;
+            _militiaMelee = null;
+            _militiaMeleeElite = null;
+            _militiaRanged = null;
+            _militiaRangedElite = null;
+            _caravanGuard = null;
+            _caravanMaster = null;
+            _villager = null;
+            InvalidateCategoryCache();
+        }
+
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                          Base                          //
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
