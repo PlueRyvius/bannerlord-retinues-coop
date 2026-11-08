@@ -141,6 +141,17 @@ namespace Retinues.Troops
                 EventManager.Fire(UIEvent.Faction);
             }
 
+            // Co-op: the server has no screen to ask on, and its players never see its pop-ups, so their troops
+            // would never be made. Copy the culture's tree, the choice that leaves a player a usable army.
+            if (CoopState.IsServer)
+            {
+                Log.Info(
+                    $"Co-op: copying {faction.Culture?.Name}'s troop tree for {faction.Name}."
+                );
+                CreateAllTroops(copyWholeTree: true);
+                return true;
+            }
+
             InformationManager.ShowInquiry(
                 new InquiryData(
                     titleText: L.S("custom_troops_inquiry_title", "Custom Troops Unlocked"),
