@@ -27,8 +27,15 @@ namespace Retinues.Troops
         //                        Sync Data                       //
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
 
+        // Legacy single slots: the main player's clan and kingdom. Still written so a save
+        // opened in a build without per-faction troops keeps the main player's troops.
         private FactionSaveData _clanTroops;
         private FactionSaveData _kingdomTroops;
+
+        // One entry per troop-owning clan / kingdom, keyed by FactionSaveData.FactionId.
+        private List<FactionSaveData> _clanTroopsByFaction;
+        private List<FactionSaveData> _kingdomTroopsByFaction;
+
         private List<FactionSaveData> _cultureTroops;
         private List<FactionSaveData> _minorClanTroops;
 
@@ -39,6 +46,8 @@ namespace Retinues.Troops
         {
             ds.SyncData("Retinues_ClanTroops", ref _clanTroops);
             ds.SyncData("Retinues_KingdomTroops", ref _kingdomTroops);
+            ds.SyncData("Retinues_ClanTroopsByFaction", ref _clanTroopsByFaction);
+            ds.SyncData("Retinues_KingdomTroopsByFaction", ref _kingdomTroopsByFaction);
             ds.SyncData("Retinues_CultureTroops", ref _cultureTroops);
             ds.SyncData("Retinues_MinorClanTroops", ref _minorClanTroops);
 
@@ -79,18 +88,27 @@ namespace Retinues.Troops
         /// </summary>
         private void OnBeforeSave()
         {
-            // Collect clan troops
-            if (Player.Clan is not null)
-                _clanTroops = new FactionSaveData(Player.Clan);
+            // Collect clan troops: every troop-owning clan, plus any clan whose wrapper still
+            // carries troops (e.g. a co-op player's clan while its leader is offline).
+            _clanTroopsByFaction = [];
+            foreach (var clan in SavedClans())
+            {
+                var data = new FactionSaveData(WFaction.Get(clan));
+                if (TroopOwners.IsOwnerClan(clan) || !data.IsEmpty)
+                    _clanTroopsByFaction.Add(data);
+            }
 
-            // Collect kingdom troops. Clear stale data when the player no longer leads a
-            // kingdom (e.g. a rebel kingdom that was absorbed back into another faction);
+            // Collect kingdom troops. Clear stale data when no player leads the kingdom any
+            // more (e.g. a rebel kingdom that was absorbed back into another faction);
             // otherwise the defunct faction's troops linger in the save and get re-applied
             // on every load, corrupting clan troops that reuse their stub ids.
-            if (Player.Kingdom is not null)
-                _kingdomTroops = new FactionSaveData(Player.Kingdom);
-            else
-                _kingdomTroops = null;
+            _kingdomTroopsByFaction = [];
+            foreach (var kingdom in TroopOwners.Kingdoms)
+                _kingdomTroopsByFaction.Add(new FactionSaveData(WFaction.Get(kingdom)));
+
+            // Legacy slots for the main player.
+            _clanTroops = Find(_clanTroopsByFaction, Clan.PlayerClan?.StringId);
+            _kingdomTroops = Find(_kingdomTroopsByFaction, Clan.PlayerClan?.Kingdom?.StringId);
 
             if (ResetCultureTroops)
             {
@@ -104,8 +122,10 @@ namespace Retinues.Troops
                 // belong to the player's own clan/kingdom roots so their troops are never
                 // dropped (the dialog promises they are left untouched).
                 var keep = new HashSet<string>(StringComparer.Ordinal);
-                CollectVanillaRootIds(Player.Clan, keep);
-                CollectVanillaRootIds(Player.Kingdom, keep);
+                foreach (var clan in TroopOwners.Clans)
+                    CollectVanillaRootIds(WFaction.Get(clan), keep);
+                foreach (var kingdom in TroopOwners.Kingdoms)
+                    CollectVanillaRootIds(WFaction.Get(kingdom), keep);
 
                 WCharacter.EditedVanillaRootIds.RemoveWhere(id => !keep.Contains(id));
                 return;
@@ -158,18 +178,50 @@ namespace Retinues.Troops
             // Apply plus the per-child/per-node exception isolation in TroopSaveData is the
             // correct protection.
 
-            // Rebuild clan troops
-            _clanTroops?.Apply(Player.Clan);
+            // Saves made before troops were stored per faction hold the main player's clan
+            // and kingdom in the single legacy slots.
+            MigrateLegacySlots();
 
-            // Rebuild kingdom troops only when the player actually leads a kingdom.
+            // Rebuild clan troops
+            var loadedClanIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var data in _clanTroopsByFaction ?? [])
+            {
+                var clan = Clan.All.FirstOrDefault(c => c.StringId == data?.FactionId);
+                if (clan is null || clan.IsEliminated)
+                {
+                    Log.Info($"Skipping troop data for missing clan '{data?.FactionId}'.");
+                    continue;
+                }
+
+                data.Apply(WFaction.Get(clan));
+                loadedClanIds.Add(clan.StringId);
+            }
+
+            // Rebuild kingdom troops only for kingdoms still ruled by a clan with troops.
             // Applying with a null faction would fall into the faction-less culture path,
             // which writes stale troop data onto free stubs (without claiming them) and
             // corrupts clan troops that later reuse those stub ids. Drop the data so it is
-            // not re-saved either.
-            if (Player.Kingdom is not null)
-                _kingdomTroops?.Apply(Player.Kingdom);
-            else
-                _kingdomTroops = null;
+            // not re-saved either. The ruling-clan test does not depend on who is online, so
+            // it gives the same answer on a co-op server before players have joined.
+            var keptKingdoms = new List<FactionSaveData>();
+            foreach (var data in _kingdomTroopsByFaction ?? [])
+            {
+                var kingdom = Kingdom.All.FirstOrDefault(k => k.StringId == data?.FactionId);
+                if (
+                    kingdom is null
+                    || kingdom.IsEliminated
+                    || kingdom.RulingClan is null
+                    || !loadedClanIds.Contains(kingdom.RulingClan.StringId)
+                )
+                {
+                    Log.Info($"Dropping stale troop data for kingdom '{data?.FactionId}'.");
+                    continue;
+                }
+
+                data.Apply(WFaction.Get(kingdom));
+                keptKingdoms.Add(data);
+            }
+            _kingdomTroopsByFaction = keptKingdoms;
 
             if (Config.EnableGlobalEditor == true)
             {
@@ -228,15 +280,67 @@ namespace Retinues.Troops
         /// </summary>
         public bool ClearStaleKingdomData()
         {
-            if (Player.Kingdom is null && _kingdomTroops is not null)
+            if (_kingdomTroopsByFaction is null)
+                return false;
+
+            var owned = new HashSet<string>(
+                TroopOwners.Kingdoms.Select(k => k.StringId),
+                StringComparer.Ordinal
+            );
+            var removed = _kingdomTroopsByFaction.RemoveAll(d => !owned.Contains(d?.FactionId));
+            if (removed == 0)
+                return false;
+
+            _kingdomTroops = Find(_kingdomTroopsByFaction, Clan.PlayerClan?.Kingdom?.StringId);
+            Log.Info($"Scrub: discarded stale troop data for {removed} kingdom(s).");
+            return true;
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
+        //                         Helpers                        //
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
+
+        /// <summary>
+        /// Moves the legacy single clan/kingdom slots into the per-faction lists, as the
+        /// main player's entries. Runs only for saves without per-faction data.
+        /// </summary>
+        private void MigrateLegacySlots()
+        {
+            if (_clanTroopsByFaction is not null || _kingdomTroopsByFaction is not null)
+                return; // Already per faction; the legacy slots are only a mirror.
+
+            _clanTroopsByFaction = [];
+            _kingdomTroopsByFaction = [];
+
+            var clan = Clan.PlayerClan;
+            if (_clanTroops is not null && clan is not null)
             {
-                _kingdomTroops = null;
-                Log.Info("Scrub: discarded stale kingdom troop data.");
-                return true;
+                _clanTroops.FactionId = clan.StringId;
+                _clanTroopsByFaction.Add(_clanTroops);
+                Log.Info($"Migrated legacy clan troop data to clan '{clan.StringId}'.");
             }
 
-            return false;
+            // Upstream applied kingdom data only while the main hero led a kingdom.
+            var kingdom = Hero.MainHero?.IsKingdomLeader == true ? clan?.Kingdom : null;
+            if (_kingdomTroops is not null && kingdom is not null)
+            {
+                _kingdomTroops.FactionId = kingdom.StringId;
+                _kingdomTroopsByFaction.Add(_kingdomTroops);
+                Log.Info($"Migrated legacy kingdom troop data to kingdom '{kingdom.StringId}'.");
+            }
         }
+
+        /// <summary>
+        /// Clans whose troops are considered for saving: troop owners plus every major clan,
+        /// so a clan that still carries troops (e.g. a co-op player who is offline) keeps them.
+        /// </summary>
+        private static IEnumerable<Clan> SavedClans() =>
+            TroopOwners
+                .Clans.Concat(Clan.All.Where(c => !c.IsEliminated && !c.IsMinorFaction))
+                .Distinct();
+
+        private static FactionSaveData Find(List<FactionSaveData> list, string factionId) =>
+            factionId is null ? null : list?.FirstOrDefault(d => d?.FactionId == factionId);
 
         /* ━━━━━ Fief Acquired ━━━━ */
 
@@ -249,22 +353,24 @@ namespace Retinues.Troops
             ChangeOwnerOfSettlementAction.ChangeOwnerOfSettlementDetail d
         )
         {
-            if (new WFaction(n?.Clan).IsPlayerClan == false)
-                return; // Not player clan gaining a fief
+            var clan = WFaction.Get(n?.Clan);
+            if (clan?.IsPlayerClan != true)
+                return; // Not a player clan gaining a fief
 
             Log.Debug($"Fief acquired: {s.Name}, ensuring troops exist.");
-            TroopBuilder.EnsureTroopsExist(Player.Clan);
+            TroopBuilder.EnsureTroopsExist(clan);
         }
 
         /* ━━━━━ Kingdom Created ━━━ */
 
         void KingdomUnlock(Kingdom k)
         {
-            if (new WFaction(k).IsPlayerKingdom == false)
-                return; // Not player kingdom
+            var kingdom = WFaction.Get(k);
+            if (kingdom?.IsPlayerKingdom != true)
+                return; // Not a player kingdom
 
             Log.Debug($"Kingdom created: {k.Name}, ensuring troops exist.");
-            TroopBuilder.EnsureTroopsExist(Player.Kingdom);
+            TroopBuilder.EnsureTroopsExist(kingdom);
         }
     }
 }
