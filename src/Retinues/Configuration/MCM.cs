@@ -180,6 +180,67 @@ namespace Retinues.Configuration
         }
 
         /// <summary>
+        /// Wires every option without MCM, for games where MCM never registers (Bannerlord Coop's
+        /// dedicated server): without this every option reads as default(T), i.e. 0 or false. Then loads
+        /// the values MCM saved for Retinues on this PC, if there are any. Safe to call more than once.
+        /// </summary>
+        public static void EnsureLoadedWithoutMcm()
+        {
+            DiscoverOptions();
+
+            try
+            {
+                var file = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                    "Mount and Blade II Bannerlord",
+                    "Configs",
+                    "ModSettings",
+                    "Global",
+                    McmFolder,
+                    McmId + ".json"
+                );
+                if (!File.Exists(file))
+                {
+                    Log.Info($"Config: no saved MCM settings at {file}; using defaults.");
+                    return;
+                }
+
+                // MCM's global settings file is a flat JSON object: { "OptionKey": value, ... }.
+                var text = File.ReadAllText(file);
+                int loaded = 0;
+                foreach (
+                    System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(
+                        text,
+                        "\"(?<key>[^\"]+)\"\\s*:\\s*(?<value>\"[^\"]*\"|true|false|-?[0-9.eE+-]+)"
+                    )
+                )
+                {
+                    if (!_byKey.TryGetValue(m.Groups["key"].Value, out var option))
+                        continue;
+                    var raw = m.Groups["value"].Value.Trim('"');
+                    try
+                    {
+                        _values[option.Key] = Convert.ChangeType(
+                            raw,
+                            option.Type,
+                            CultureInfo.InvariantCulture
+                        );
+                        loaded++;
+                    }
+                    catch
+                    {
+                        // Leave the default for a value of the wrong shape.
+                    }
+                }
+                Log.Info($"Config: loaded {loaded} saved setting(s) without MCM from {file}.");
+            }
+            catch (Exception e)
+            {
+                Log.Warn("Config: could not read saved MCM settings: " + e.Message);
+            }
+        }
+
+        /// <summary>
         /// Discover Option<T> fields via reflection and wire their getters/setters.
         /// </summary>
         private static void DiscoverOptions()
@@ -695,6 +756,22 @@ namespace Retinues.Configuration
                 () => { }
             );
             InformationManager.ShowInquiry(inquiry);
+        }
+
+        /// <summary>
+        /// Every option's key and current value as invariant text (e.g. to hand a host's settings to players).
+        /// </summary>
+        public static List<(string Key, string Value)> CurrentValues()
+        {
+            var result = new List<(string, string)>();
+            foreach (var option in _all)
+            {
+                var value = option.GetObject();
+                result.Add(
+                    (option.Key, Convert.ToString(value, CultureInfo.InvariantCulture) ?? "")
+                );
+            }
+            return result;
         }
 
         /// <summary>

@@ -81,11 +81,15 @@ namespace Retinues.Configuration
         public object DisabledOverrideBoxed => DisabledOverride!;
 
         /// <summary>
-        /// The current typed option value (uses the runtime-backed getter/setter).
+        /// The current typed option value (uses the runtime-backed getter/setter), unless a session
+        /// override is set for this key (co-op: the server's settings and forced values win).
         /// </summary>
         public T Value
         {
-            get => Getter();
+            get =>
+                SessionOverrides.TryGet(Key, out var forced)
+                    ? (T)Convert.ChangeType(forced, typeof(T), CultureInfo.InvariantCulture)
+                    : Getter();
             set => Setter(value);
         }
 
