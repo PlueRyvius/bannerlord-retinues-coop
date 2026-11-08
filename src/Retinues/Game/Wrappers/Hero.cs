@@ -117,10 +117,9 @@ namespace Retinues.Game.Wrappers
             }
         }
 
-        public override WFaction Clan => _hero.Clan == null ? null : new WFaction(_hero.Clan);
+        public override WFaction Clan => WFaction.Get(_hero.Clan);
 
-        public override WFaction Kingdom =>
-            _hero.Clan?.Kingdom == null ? null : new WFaction(_hero.Clan.Kingdom);
+        public override WFaction Kingdom => WFaction.Get(_hero.Clan?.Kingdom);
 
         public bool IsPartyLeader => _hero.IsPartyLeader;
 

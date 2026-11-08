@@ -53,7 +53,7 @@ namespace Retinues.Game.Wrappers
         //                          Flags                         //
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
 
-        public bool IsPlayerClan => Base != null && Base.StringId == Clan.PlayerClan.StringId;
+        public bool IsPlayerClan => TroopOwners.IsOwnerClan(Base);
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                         Banner                         //

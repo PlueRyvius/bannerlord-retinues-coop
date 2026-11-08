@@ -206,7 +206,7 @@ namespace Retinues.Doctrines
             if (s == null)
                 return; // No settlement
 
-            if (new WFaction(n?.Clan).IsPlayerClan == false)
+            if (WFaction.Get(n?.Clan)?.IsPlayerClan != true)
                 return; // Not player clan gaining a fief
 
             NotifyFeats(
@@ -266,8 +266,8 @@ namespace Retinues.Doctrines
         /// <summary>
         /// Refreshes the list of active feats based on doctrine status and feat completion.
         /// </summary>
-        private void RefreshActiveFeats()
-            => RefreshActiveFeats(Campaign.Current?.GetCampaignBehavior<DoctrineServiceBehavior>());
+        private void RefreshActiveFeats() =>
+            RefreshActiveFeats(Campaign.Current?.GetCampaignBehavior<DoctrineServiceBehavior>());
 
         internal void RefreshActiveFeats(DoctrineServiceBehavior service)
         {

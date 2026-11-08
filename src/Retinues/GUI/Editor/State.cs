@@ -92,7 +92,7 @@ namespace Retinues.GUI.Editor
                 if (Faction is WClan clan)
                     return clan;
                 if (Faction is WFaction faction)
-                    return new(Hero.MainHero.Clan);
+                    return new(Player.ActingHero.Clan);
                 if (Faction is WCulture culture)
                     return WClan.All.FirstOrDefault(c => c?.Culture?.StringId == culture.StringId);
                 return null;

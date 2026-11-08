@@ -598,8 +598,46 @@ namespace Retinues.Game.Wrappers
             }
         }
 
-        public override WFaction Clan => IsCustom ? Player.Clan : null;
-        public override WFaction Kingdom => IsCustom ? Player.Kingdom : null;
+        // A custom troop belongs to the faction that owns its tree. A clan troop's kingdom is
+        // that clan's kingdom (when the clan rules it); a kingdom troop's clan is the ruling clan.
+        // Troops not yet bound to a faction fall back to the acting player's.
+        public override WFaction Clan
+        {
+            get
+            {
+                if (!IsCustom)
+                    return null;
+
+                return Faction switch
+                {
+                    WFaction { Base: TaleWorlds.CampaignSystem.Clan } f => f,
+                    WFaction { Base: TaleWorlds.CampaignSystem.Kingdom k } => WFaction.Get(
+                        k.RulingClan
+                    ),
+                    _ => Player.Clan,
+                };
+            }
+        }
+
+        public override WFaction Kingdom
+        {
+            get
+            {
+                if (!IsCustom)
+                    return null;
+
+                return Faction switch
+                {
+                    WFaction { Base: TaleWorlds.CampaignSystem.Kingdom } f => f,
+                    WFaction { Base: TaleWorlds.CampaignSystem.Clan c } => c.Kingdom != null
+                    && TroopOwners.IsOwnerKingdom(c.Kingdom)
+                    && c.Kingdom.RulingClan == c
+                        ? WFaction.Get(c.Kingdom)
+                        : null,
+                    _ => Player.Kingdom,
+                };
+            }
+        }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                    Basic Attributes                    //
@@ -1123,7 +1161,10 @@ namespace Retinues.Game.Wrappers
 
                 var targets = other.UpgradeTargets;
                 if (targets.Any(t => t != null && t.StringId == StringId))
-                    other.UpgradeTargets = [.. targets.Where(t => t != null && t.StringId != StringId)];
+                    other.UpgradeTargets =
+                    [
+                        .. targets.Where(t => t != null && t.StringId != StringId),
+                    ];
             }
         }
 
