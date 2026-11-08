@@ -27,27 +27,59 @@ namespace Retinues.Game
         {
             _culture = null;
             _character = null;
-            _clan = null;
-            _kingdom = null;
+            _acting = null;
+            WFaction.ClearRegistry();
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
+        //                      Acting Hero                       //
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
+
+        private static Hero _acting;
+
+        /// <summary>
+        /// The hero "the player" refers to. This is the main hero, unless a multiplayer
+        /// integration runs an action on behalf of another player's hero (see <see cref="ActAs"/>).
+        /// </summary>
+        public static Hero ActingHero => _acting ?? Hero.MainHero;
+
+        /// <summary>
+        /// True while an action runs on behalf of a hero other than the main hero.
+        /// </summary>
+        public static bool IsActingForOther => _acting != null && _acting != Hero.MainHero;
+
+        /// <summary>
+        /// Runs the code inside the returned scope as the given hero: every Player member
+        /// (clan, kingdom, party, gold, influence...) resolves to that hero until disposed.
+        /// </summary>
+        public static IDisposable ActAs(Hero hero)
+        {
+            var previous = _acting;
+            _acting = hero;
+            return new ActingScope(previous);
+        }
+
+        private sealed class ActingScope(Hero previous) : IDisposable
+        {
+            private bool _disposed;
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+                _disposed = true;
+                _acting = previous;
+            }
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                       Components                       //
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
 
-        private static WFaction _clan;
-
         /// <summary>
         /// Returns the player's clan as a WFaction wrapper.
         /// </summary>
-        public static WFaction Clan
-        {
-            get
-            {
-                _clan ??= new WFaction(Hero.MainHero.Clan);
-                return _clan;
-            }
-        }
+        public static WFaction Clan => WFaction.Get(ActingHero?.Clan);
 
         private static WCulture _culture;
 
@@ -58,6 +90,9 @@ namespace Retinues.Game
         {
             get
             {
+                // Cached for the main hero only; acting heroes are resolved each time.
+                if (IsActingForOther)
+                    return new WCulture(ActingHero.Culture);
                 _culture ??= new WCulture(Hero.MainHero.Culture);
                 return _culture;
             }
@@ -72,6 +107,8 @@ namespace Retinues.Game
         {
             get
             {
+                if (IsActingForOther)
+                    return new WCharacter(ActingHero.CharacterObject);
                 _character ??= new WCharacter(Hero.MainHero.CharacterObject);
                 return _character;
             }
@@ -80,12 +117,13 @@ namespace Retinues.Game
         /// <summary>
         /// Returns the player's main party as a WParty wrapper.
         /// </summary>
-        public static WParty Party => new(MobileParty.MainParty);
+        public static WParty Party =>
+            new(IsActingForOther ? ActingHero.PartyBelongedTo : MobileParty.MainParty);
 
         /// <summary>
         /// Returns the player's map faction.
         /// </summary>
-        public static IFaction MapFaction => Hero.MainHero.MapFaction;
+        public static IFaction MapFaction => ActingHero.MapFaction;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                       Attributes                       //
@@ -94,12 +132,12 @@ namespace Retinues.Game
         /// <summary>
         /// Returns the player's name.
         /// </summary>
-        public static string Name => Hero.MainHero.Name.ToString();
+        public static string Name => ActingHero.Name.ToString();
 
         /// <summary>
         /// Returns true if the player is female.
         /// </summary>
-        public static bool IsFemale => Hero.MainHero.IsFemale;
+        public static bool IsFemale => ActingHero.IsFemale;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                         Renown                         //
@@ -108,7 +146,7 @@ namespace Retinues.Game
         /// <summary>
         /// Returns the player's clan renown.
         /// </summary>
-        public static float Renown => Hero.MainHero.Clan.Renown;
+        public static float Renown => ActingHero.Clan.Renown;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                          Gold                          //
@@ -117,14 +155,14 @@ namespace Retinues.Game
         /// <summary>
         /// Returns the player's gold.
         /// </summary>
-        public static int Gold => Hero.MainHero.Gold;
+        public static int Gold => ActingHero.Gold;
 
         /// <summary>
         /// Changes the player's gold by the given amount.
         /// </summary>
         public static void ChangeGold(int amount)
         {
-            Hero.MainHero.ChangeHeroGold(amount);
+            ActingHero.ChangeHeroGold(amount);
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
@@ -138,9 +176,10 @@ namespace Retinues.Game
         {
             get
             {
-                if (TaleWorlds.CampaignSystem.Clan.PlayerClan == null)
+                var clan = ActingHero?.Clan;
+                if (clan == null)
                     return 0;
-                return (int)TaleWorlds.CampaignSystem.Clan.PlayerClan.Influence;
+                return (int)clan.Influence;
             }
         }
 
@@ -149,9 +188,10 @@ namespace Retinues.Game
         /// </summary>
         public static void ChangeInfluence(int amount)
         {
-            if (TaleWorlds.CampaignSystem.Clan.PlayerClan == null)
+            var clan = ActingHero?.Clan;
+            if (clan == null)
                 return;
-            TaleWorlds.CampaignSystem.Clan.PlayerClan.Influence = Math.Max(0f, Influence + amount);
+            clan.Influence = Math.Max(0f, Influence + amount);
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
@@ -161,15 +201,13 @@ namespace Retinues.Game
         /// <summary>
         /// Returns true if the player is a kingdom leader.
         /// </summary>
-        public static bool IsKingdomLeader => Hero.MainHero.IsKingdomLeader;
+        public static bool IsKingdomLeader => ActingHero?.IsKingdomLeader == true;
 
         /// <summary>
         /// Returns the player's kingdom as a WFaction wrapper, if leader.
         /// </summary>
         public static WFaction Kingdom =>
-            IsKingdomLeader ? _kingdom ??= new WFaction(Hero.MainHero.Clan.Kingdom) : null;
-
-        private static WFaction _kingdom;
+            IsKingdomLeader ? WFaction.Get(ActingHero.Clan.Kingdom) : null;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                         Troops                         //

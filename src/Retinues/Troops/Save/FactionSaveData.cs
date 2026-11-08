@@ -66,6 +66,31 @@ namespace Retinues.Troops.Save
         [SaveableField(15)]
         public List<TroopSaveData> Heroes;
 
+        // StringId of the clan or kingdom this data belongs to. Null in saves made before
+        // troops were stored per faction, and for culture data.
+        [SaveableField(18)]
+        public string FactionId;
+
+        /// <summary>
+        /// True if no troop of the faction needed saving.
+        /// </summary>
+        public bool IsEmpty =>
+            RetinueElite == null
+            && RetinueBasic == null
+            && RootElite == null
+            && RootBasic == null
+            && MilitiaMelee == null
+            && MilitiaMeleeElite == null
+            && MilitiaRanged == null
+            && MilitiaRangedElite == null
+            && CaravanGuard == null
+            && CaravanMaster == null
+            && Villager == null
+            && Mercenaries == null
+            && Bandits == null
+            && Civilians == null
+            && Extras == null;
+
         public FactionSaveData()
         {
             // Default constructor for deserialization
@@ -75,6 +100,8 @@ namespace Retinues.Troops.Save
         {
             if (faction is null)
                 return; // Null faction, nothing to do
+
+            FactionId = faction is WFaction ? faction.StringId : null;
 
             // Troop references
             RetinueElite = CreateIfNeeded(faction.RetinueElite);

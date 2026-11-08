@@ -6,6 +6,7 @@ using Retinues.Doctrines.Catalog;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.GUI.Editor;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.Library;
 using TaleWorlds.Localization;
@@ -32,6 +33,10 @@ namespace Retinues.Troops
         {
             if (faction == null)
                 return; // Cannot ensure troops exist for null (no kingdom?) faction.
+
+            // Co-op: only the server creates troops.
+            if (CoopBridge.Relay(CoopActions.EnsureTroops, faction.StringId))
+                return;
 
             if (faction.IsPlayerKingdom && Config.DisableKingdomTroops)
                 return;
@@ -134,6 +139,17 @@ namespace Retinues.Troops
 
                 // Notify UI of faction change (for troop lists)
                 EventManager.Fire(UIEvent.Faction);
+            }
+
+            // Co-op: the server has no screen to ask on, and its players never see its pop-ups, so their troops
+            // would never be made. Copy the culture's tree, the choice that leaves a player a usable army.
+            if (CoopState.IsServer)
+            {
+                Log.Info(
+                    $"Co-op: copying {faction.Culture?.Name}'s troop tree for {faction.Name}."
+                );
+                CreateAllTroops(copyWholeTree: true);
+                return true;
             }
 
             InformationManager.ShowInquiry(
@@ -273,7 +289,7 @@ namespace Retinues.Troops
                 return;
             }
 
-            var tpl = FindTemplate(root, tierBonus: faction == Player.Kingdom ? 2 : 0);
+            var tpl = FindTemplate(root, tierBonus: faction.IsKingdom ? 2 : 0);
 
             var retinue = isElite
                 ? new WCharacter(faction, RootCategory.RetinueElite)
@@ -296,9 +312,12 @@ namespace Retinues.Troops
         {
             TextObject to;
 
-            if (faction == Player.Kingdom)
+            if (faction.IsKingdom)
                 if (isElite)
-                    if (Player.IsFemale)
+                    if (
+                        (faction.Base as TaleWorlds.CampaignSystem.Kingdom)?.Leader?.IsFemale
+                        == true
+                    )
                         to = L.T("retinue_female_kingdom", "{FACTION} Queen's Champion");
                     else
                         to = L.T("retinue_male_kingdom", "{FACTION} King's Champion");

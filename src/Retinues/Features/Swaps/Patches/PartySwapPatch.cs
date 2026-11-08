@@ -1,5 +1,6 @@
 using HarmonyLib;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using TaleWorlds.CampaignSystem.Party;
 using TaleWorlds.CampaignSystem.Party.PartyComponents;
 
@@ -14,6 +15,9 @@ namespace Retinues.Features.Swaps.Patches
     {
         static void Postfix(CaravanPartyComponent __instance, MobileParty __result)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (__result == null)
                 return; // should not happen
 
@@ -35,6 +39,9 @@ namespace Retinues.Features.Swaps.Patches
     {
         static void Postfix(MilitiaPartyComponent __instance, MobileParty __result)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (__result == null)
                 return; // should not happen
 
@@ -54,6 +61,9 @@ namespace Retinues.Features.Swaps.Patches
     {
         static void Postfix(VillagerPartyComponent __instance, MobileParty __result)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (__result == null)
                 return; // should not happen
 

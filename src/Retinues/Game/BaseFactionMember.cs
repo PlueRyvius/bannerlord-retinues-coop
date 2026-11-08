@@ -20,18 +20,30 @@ namespace Retinues.Game
         {
             get
             {
-                // Set directly from Player static to avoid new instance without troop attributes
-                var clan = Clan?.IsPlayerClan == true ? Player.Clan : null;
-                var kingdom = Kingdom?.IsPlayerKingdom == true ? Player.Kingdom : null;
+                // Clan and Kingdom come from the faction registry, so these are the shared
+                // wrappers that carry the troop attributes.
+                var clan = Clan;
+                clan = clan?.IsPlayerClan == true ? clan : null;
+                var kingdom = Kingdom;
+                kingdom = kingdom?.IsPlayerKingdom == true ? kingdom : null;
 
                 if (Config.DisableKingdomTroops)
-                    // If the settlement is in the player's kingdom but belongs to another clan,
-                    // still return Player.Clan so volunteers are treated as player-sphere and
-                    // swapped to clan troops (not left as vanilla kingdom/culture troops).
-                    return clan ?? (kingdom != null ? Player.Clan : null);
+                    // If the settlement is in a player's kingdom but belongs to another clan,
+                    // still return the ruling player's clan so volunteers are treated as
+                    // player-sphere and swapped to clan troops (not left as vanilla
+                    // kingdom/culture troops).
+                    return clan ?? RulerClanOf(kingdom);
 
                 return clan ?? kingdom;
             }
         }
+
+        /// <summary>
+        /// The ruling clan of a player kingdom, as its registry wrapper.
+        /// </summary>
+        private static WFaction RulerClanOf(WFaction kingdom) =>
+            kingdom?.Base is TaleWorlds.CampaignSystem.Kingdom k
+                ? WFaction.Get(k.RulingClan)
+                : null;
     }
 }

@@ -6,6 +6,7 @@ using Retinues.Features.Experience;
 using Retinues.Features.Staging;
 using Retinues.Game.Wrappers;
 using Retinues.GUI.Editor;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.Core;
 using TaleWorlds.Localization;
@@ -232,6 +233,9 @@ namespace Retinues.Managers
         public static void ModifySkill(WCharacter troop, SkillObject skill, bool increment)
         {
             if (troop == null || skill == null)
+                return;
+
+            if (CoopBridge.Relay(CoopActions.Skill, troop.StringId, skill.StringId, increment))
                 return;
 
             // Heroes: apply directly, no staging / XP system.

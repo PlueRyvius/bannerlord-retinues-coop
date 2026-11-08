@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Retinues.Configuration;
 using Retinues.Doctrines;
 using Retinues.Doctrines.Catalog;
@@ -9,6 +10,7 @@ using Retinues.Features.Unlocks;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.GUI.Editor;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.Core;
 using TaleWorlds.ObjectSystem;
@@ -565,6 +567,22 @@ namespace Retinues.Managers
                 return res;
             }
 
+            // Co-op: the server equips (and charges) for this player.
+            if (
+                CoopBridge.Relay(
+                    CoopActions.Equip,
+                    troop.StringId,
+                    setIndex,
+                    (int)slot,
+                    newItem?.StringId ?? "",
+                    allowPurchase
+                )
+            )
+            {
+                res.Ok = true;
+                return res;
+            }
+
             if (ClanScreen.IsStudioMode)
                 return TryEquip_Studio(troop, setIndex, slot, newItem, res);
             else
@@ -707,6 +725,12 @@ namespace Retinues.Managers
                 Reason = EquipFailReason.None,
             };
 
+            if (CoopBridge.Relay(CoopActions.Unequip, troop.StringId, setIndex, (int)slot))
+            {
+                res.Ok = true;
+                return res;
+            }
+
             var loadout = troop.Loadout;
             var eq = loadout.Get(setIndex);
             var oldItem = eq?.Get(slot);
@@ -817,6 +841,12 @@ namespace Retinues.Managers
         public static DeleteSetResult TryDeleteSet(WCharacter troop, int setIndex)
         {
             var res = new DeleteSetResult { Ok = false, Refunded = [] };
+
+            if (CoopBridge.Relay(CoopActions.DeleteSet, troop.StringId, setIndex))
+            {
+                res.Ok = true;
+                return res;
+            }
 
             // If you track staged ops per set, cancel them here and revert their acquisitions.
             // TroopEquipBehavior.CancelSetStages(troop, setIndex); // optional, implement if needed
@@ -986,6 +1016,21 @@ namespace Retinues.Managers
 
             if (source == null || target == null)
                 return res;
+
+            if (
+                CoopBridge.Relay(
+                    CoopActions.Paste,
+                    source.Loadout.Troop.StringId,
+                    source.Index,
+                    target.Loadout.Troop.StringId,
+                    target.Index,
+                    allowedSlots == null ? "" : string.Join(",", allowedSlots.Select(s => (int)s))
+                )
+            )
+            {
+                res.Ok = true;
+                return res;
+            }
 
             var troop = target.Loadout.Troop;
             if (troop == null)

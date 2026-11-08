@@ -17,6 +17,61 @@ namespace Retinues.Game.Wrappers
     public class WFaction(IFaction faction) : BaseBannerFaction
     {
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
+        //                        Registry                        //
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
+
+        // The troop slots below live on the wrapper instance, so every clan or kingdom needs
+        // exactly one long-lived wrapper. Get() hands out that instance.
+        private static readonly Dictionary<string, WFaction> _registry = new(
+            System.StringComparer.Ordinal
+        );
+
+        /// <summary>
+        /// Returns the one shared wrapper for a faction, or null for a null faction.
+        /// </summary>
+        public static WFaction Get(IFaction faction)
+        {
+            var id = faction?.StringId;
+            if (string.IsNullOrEmpty(id))
+                return null;
+
+            if (
+                _registry.TryGetValue(id, out var existing)
+                && ReferenceEquals(existing.Base, faction)
+            )
+                return existing;
+
+            var created = new WFaction(faction);
+            _registry[id] = created;
+            return created;
+        }
+
+        /// <summary>
+        /// Drops every cached wrapper. Called when a campaign is unloaded.
+        /// </summary>
+        public static void ClearRegistry() => _registry.Clear();
+
+        /// <summary>
+        /// Unbinds every root troop without touching the troops themselves (no replacement in parties), so the
+        /// faction's troops can be loaded afresh, e.g. from a co-op server's snapshot.
+        /// </summary>
+        public void ClearRoots()
+        {
+            _retinueElite = null;
+            _retinueBasic = null;
+            _rootElite = null;
+            _rootBasic = null;
+            _militiaMelee = null;
+            _militiaMeleeElite = null;
+            _militiaRanged = null;
+            _militiaRangedElite = null;
+            _caravanGuard = null;
+            _caravanMaster = null;
+            _villager = null;
+            InvalidateCategoryCache();
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                          Base                          //
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
 
@@ -61,9 +116,11 @@ namespace Retinues.Game.Wrappers
 
         /* ━━━━━━━━ Player ━━━━━━━━ */
 
-        public bool IsPlayerFaction => this == Player.Clan || this == Player.Kingdom;
-        public bool IsPlayerClan => this == Player.Clan;
-        public bool IsPlayerKingdom => this == Player.Kingdom;
+        // "Player" here means any human player: in single player that is the main hero's clan
+        // and kingdom, in multiplayer every player's (see TroopOwners).
+        public bool IsPlayerFaction => IsPlayerClan || IsPlayerKingdom;
+        public bool IsPlayerClan => _faction is Clan c && TroopOwners.IsOwnerClan(c);
+        public bool IsPlayerKingdom => _faction is Kingdom k && TroopOwners.IsOwnerKingdom(k);
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                          Lists                         //

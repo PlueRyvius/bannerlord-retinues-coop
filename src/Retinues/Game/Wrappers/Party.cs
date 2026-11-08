@@ -85,11 +85,11 @@ namespace Retinues.Game.Wrappers
                         _ownerClan = _party.HomeSettlement.OwnerClan;
                 }
 
-                return _ownerClan != null ? new WFaction(_ownerClan) : null;
+                return WFaction.Get(_ownerClan);
             }
         }
 
-        public override WFaction Kingdom => Clan != null ? new WFaction(_ownerClan.Kingdom) : null;
+        public override WFaction Kingdom => Clan != null ? WFaction.Get(_ownerClan.Kingdom) : null;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                       Properties                       //

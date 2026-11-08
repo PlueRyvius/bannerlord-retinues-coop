@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
@@ -30,8 +31,10 @@ namespace Retinues.Features.Swaps.Patches
                     && p[1].ParameterType == typeof(CharacterObject)
                     && p[2].ParameterType == typeof(CharacterObject)
                     && p[3].ParameterType == typeof(float)
-                    && (p[4].ParameterType == typeof(int)
-                        || p[4].ParameterType == typeof(int).MakeByRefType());
+                    && (
+                        p[4].ParameterType == typeof(int)
+                        || p[4].ParameterType == typeof(int).MakeByRefType()
+                    );
             });
 
         private static readonly bool UsesRemainingCount =
@@ -85,6 +88,9 @@ namespace Retinues.Features.Swaps.Patches
             [HarmonyArgument(1)] int militiaToAdd
         )
         {
+            if (CoopState.IsClient)
+                return true; // Co-op: the server runs this for everyone
+
             if (
                 __instance == null
                 || militaParty == null

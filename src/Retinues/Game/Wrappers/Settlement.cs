@@ -96,10 +96,7 @@ namespace Retinues.Game.Wrappers
                 if (clan == null)
                     return null;
 
-                if (clan == TaleWorlds.CampaignSystem.Clan.PlayerClan)
-                    return Player.Clan;
-
-                return new WFaction(clan);
+                return WFaction.Get(clan);
             }
         }
 
@@ -112,10 +109,7 @@ namespace Retinues.Game.Wrappers
                 if (kingdom == null)
                     return null;
 
-                if (kingdom == Player.Kingdom?.Base)
-                    return Player.Kingdom;
-
-                return new WFaction(kingdom);
+                return WFaction.Get(kingdom);
             }
         }
 
@@ -228,17 +222,18 @@ namespace Retinues.Game.Wrappers
                     }
                 }
                 // 2) Player kingdom fief that is NOT owned by the player clan:
-                //    base = kingdom, mix in clan using ClanVolunteersInKingdomFiefsProportion.
+                //    base = kingdom, mix in the ruling player's clan using
+                //    ClanVolunteersInKingdomFiefsProportion.
                 else if (
                     !isPlayerClanFief
                     && isPlayerKingdomFief
-                    && kingdom != null
-                    && Player.Clan != null
+                    && kingdom?.Base is TaleWorlds.CampaignSystem.Kingdom k
+                    && WFaction.Get(k.RulingClan) is WFaction rulerClan
                 )
                 {
                     if (faction == kingdom)
                     {
-                        secondaryFaction = Player.Clan;
+                        secondaryFaction = rulerClan;
                         secondaryProportion = Config.ClanVolunteersInKingdomFiefsProportion;
                     }
                 }

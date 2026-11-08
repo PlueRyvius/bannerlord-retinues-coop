@@ -45,6 +45,9 @@ namespace Retinues
 
             // Try to register with MCM
             TryRegisterWithMCM();
+
+            // Bannerlord Coop support (does nothing without Coop)
+            Mods.Coop.CoopModule.Setup();
         }
 
         /// <summary>
@@ -116,6 +119,9 @@ namespace Retinues
         {
             base.OnApplicationTick(dt);
 
+            // Bannerlord Coop support; also its setup on the dedicated server, which has no initial screen.
+            Mods.Coop.CoopModule.Tick();
+
             TryHandleEditorHotkeys(dt);
         }
 
@@ -163,7 +169,9 @@ namespace Retinues
                 // class with a logged error, instead of aborting every remaining patch in the
                 // assembly.
                 int failedPatchClasses = 0;
-                foreach (var type in AccessTools.GetTypesFromAssembly(Assembly.GetExecutingAssembly()))
+                foreach (
+                    var type in AccessTools.GetTypesFromAssembly(Assembly.GetExecutingAssembly())
+                )
                 {
                     try
                     {

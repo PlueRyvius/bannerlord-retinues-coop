@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using HarmonyLib;
+using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
@@ -46,8 +47,8 @@ namespace Retinues.Features.Swaps.Patches
             if (list == null || list.Count == 0)
                 return;
 
-            if (party == PartyBase.MainParty)
-                return; // The player's own conversions are legitimate.
+            if (TroopOwners.IsPlayerParty(party?.MobileParty))
+                return; // A player's own conversions are legitimate.
 
             for (int i = list.Count - 1; i >= 0; i--)
             {

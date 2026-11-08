@@ -5,6 +5,7 @@ using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.GUI.Helpers;
 using Retinues.Managers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
@@ -29,20 +30,65 @@ namespace Retinues.Features.AutoJoin
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
 
         private Dictionary<string, int> _caps = [];
+
+        // Renown bookkeeping of the main player's clan.
         private float _renownReserve;
         private float _lastRenown;
+
+        // The same for every other player clan (co-op), keyed by clan id. Saved in hundredths
+        // of renown, since Dictionary<string, int> is already a known save container.
+        private Dictionary<string, int> _otherReserveCenti = [];
+        private Dictionary<string, int> _otherLastRenownCenti = [];
 
         public override void SyncData(IDataStore dataStore)
         {
             dataStore.SyncData("Retinues_RetinueHire_Caps", ref _caps);
             dataStore.SyncData("Retinues_RetinueHire_RenownReserve", ref _renownReserve);
             dataStore.SyncData("Retinues_RetinueHire_LastRenown", ref _lastRenown);
+            dataStore.SyncData("Retinues_RetinueHire_ReserveByClan", ref _otherReserveCenti);
+            dataStore.SyncData("Retinues_RetinueHire_LastRenownByClan", ref _otherLastRenownCenti);
 
             if (dataStore.IsLoading)
                 if (_lastRenown == 0)
                     _lastRenown = Player.Renown;
 
             _caps ??= [];
+            _otherReserveCenti ??= [];
+            _otherLastRenownCenti ??= [];
+        }
+
+        private bool IsMainClan(Clan clan) => clan == null || clan == Clan.PlayerClan;
+
+        private float GetReserve(Clan clan) =>
+            IsMainClan(clan) ? _renownReserve
+            : _otherReserveCenti.TryGetValue(clan.StringId, out var v) ? v / 100f
+            : 0f;
+
+        private void SetReserve(Clan clan, float value)
+        {
+            if (IsMainClan(clan))
+                _renownReserve = value;
+            else
+                _otherReserveCenti[clan.StringId] = (int)Math.Round(value * 100f);
+        }
+
+        private float GetLastRenown(Clan clan)
+        {
+            if (IsMainClan(clan))
+                return _lastRenown;
+
+            // First tick for this clan: start counting from its current renown.
+            return _otherLastRenownCenti.TryGetValue(clan.StringId, out var v)
+                ? v / 100f
+                : clan.Renown;
+        }
+
+        private void SetLastRenown(Clan clan, float value)
+        {
+            if (IsMainClan(clan))
+                _lastRenown = value;
+            else
+                _otherLastRenownCenti[clan.StringId] = (int)Math.Round(value * 100f);
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
@@ -60,25 +106,49 @@ namespace Retinues.Features.AutoJoin
 
         private void OnDailyTickParty(MobileParty party)
         {
-            if (party == null || !party.IsMainParty)
-                return;
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
 
+            var hero = TroopOwners.PlayerOf(party);
+            if (hero == null)
+                return; // Not a player's party
+
+            // Player.* below resolves to this party's player.
+            using (Player.ActAs(hero))
+                HireRetinues(party, hero.Clan);
+        }
+
+        private void HireRetinues(MobileParty party, Clan clan)
+        {
             var retinues = GetHireableRetinues();
+            var reserve = GetReserve(clan);
             Log.Info(
-                $"[RetinueHire] Hireable: {retinues.Count}, Renown: {Player.Renown}, Reserve: {_renownReserve}"
+                $"[RetinueHire] Hireable: {retinues.Count}, Renown: {Player.Renown}, Reserve: {reserve}"
             );
 
             if (retinues.Count == 0)
             {
-                _renownReserve = 0;
+                SetReserve(clan, 0);
                 return;
             }
 
-            var renownGained = Player.Renown - _lastRenown;
-            _lastRenown = Player.Renown;
+            var renownGained = Player.Renown - GetLastRenown(clan);
+            SetLastRenown(clan, Player.Renown);
             if (renownGained > 0)
-                _renownReserve += renownGained;
+                reserve += renownGained;
 
+            try
+            {
+                Hire(party, retinues, ref reserve);
+            }
+            finally
+            {
+                SetReserve(clan, reserve);
+            }
+        }
+
+        private static void Hire(MobileParty party, List<WCharacter> retinues, ref float reserve)
+        {
             var wparty = new WParty(party);
             var space = Math.Max(0, wparty.PartySizeLimit - wparty.MemberRoster.Count);
             if (space <= 0)
@@ -91,6 +161,7 @@ namespace Retinues.Features.AutoJoin
 
             // Max attempt (safety in case something goes wrong)
             var maxAttempts = 1000;
+            var budget = reserve;
             // Attempt hires
             while (space > 0 && maxAttempts-- > 0)
             {
@@ -100,7 +171,7 @@ namespace Retinues.Features.AutoJoin
                         if (GetCountOf(r) >= GetJoinCap(r))
                             return false;
                         var cost = RetinueManager.RenownRequiredPerUnit(r);
-                        return cost > 0 && cost <= _renownReserve;
+                        return cost > 0 && cost <= budget;
                     })
                     .ToList();
 
@@ -110,7 +181,8 @@ namespace Retinues.Features.AutoJoin
                 var retinue = affordable[rng.Next(affordable.Count)];
                 var unitCost = RetinueManager.RenownRequiredPerUnit(retinue);
 
-                _renownReserve -= unitCost;
+                reserve -= unitCost;
+                budget = reserve;
                 wparty.MemberRoster.AddTroop(retinue, 1);
                 space--;
             }
@@ -147,6 +219,8 @@ namespace Retinues.Features.AutoJoin
         {
             if (troop == null || !troop.IsRetinue)
                 return;
+            if (CoopBridge.Relay(CoopActions.JoinCap, troop.StringId, cap))
+                return;
             if (cap <= 0)
                 Instance._caps.Remove(troop.StringId);
             else
@@ -161,8 +235,8 @@ namespace Retinues.Features.AutoJoin
         {
             if (troop == null || !troop.IsRetinue)
                 return 0;
-            var wparty = new WParty(MobileParty.MainParty);
-            return wparty.MemberRoster.CountOf(troop);
+            var wparty = Player.Party;
+            return wparty?.MemberRoster?.CountOf(troop) ?? 0;
         }
 
         private static List<WCharacter> GetHireableRetinues()

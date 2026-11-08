@@ -161,6 +161,13 @@ fi
 if [[ "$RUN_MAIN" == "true" && -f "$MAIN_PROJ" ]]; then
   print_header "=   Building ${MODULE}   ="
   dotnet build "$MAIN_PROJ" "${MSBUILD_CONFIG[@]}" "${MSBUILD_PROPS[@]}" -p:ModuleName="${MODULE}"
+
+  # Bannerlord Coop adapter (Retinues.Coop.dll), shipped next to the module's DLL
+  COOP_PROJ="$ROOT_DIR/src/${MODULE}.Coop/${MODULE}.Coop.csproj"
+  if [[ -f "$COOP_PROJ" ]]; then
+    print_header "=   Building ${MODULE}.Coop   ="
+    dotnet build "$COOP_PROJ" "${MSBUILD_CONFIG[@]}" "${MSBUILD_PROPS[@]}" -p:ModuleName="${MODULE}"
+  fi
 fi
 
 # Done

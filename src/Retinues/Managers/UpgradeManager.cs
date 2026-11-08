@@ -4,6 +4,7 @@ using Retinues.Configuration;
 using Retinues.Doctrines;
 using Retinues.Doctrines.Catalog;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.Localization;
 
@@ -21,6 +22,10 @@ namespace Retinues.Managers
         public static WCharacter AddUpgradeTarget(WCharacter troop, string targetName)
         {
             Log.Debug($"AddUpgradeTarget: '{targetName}' for {troop?.Name}");
+
+            // Co-op: the server creates the troop; it arrives with the server's next snapshot.
+            if (CoopBridge.Relay(CoopActions.AddUpgrade, troop?.StringId, targetName))
+                return null;
 
             // Create child troop using parent constructor
             var child = new WCharacter(troop);

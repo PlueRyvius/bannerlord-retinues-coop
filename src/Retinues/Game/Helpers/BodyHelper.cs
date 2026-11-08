@@ -375,6 +375,11 @@ namespace Retinues.Game.Helpers
         public static void ApplyTagsFromCulture(WCharacter troop)
         {
 #if BL13 || BL14
+            // Co-op: a player's game cannot create body property objects (Coop only lets its server
+            // create them), so the culture's hair/beard/tattoo pools stay as they are there.
+            if (Mods.Coop.CoopState.IsClient)
+                return;
+
             try
             {
                 var character = troop?.Base;

@@ -57,21 +57,32 @@ namespace Retinues.Game.Wrappers
         /// </summary>
         public static CharacterObject AllocateStub(string stringId = null)
         {
+            // Snapshot as a set: the stub pool is large, so a list lookup per stub would make
+            // every allocation scale with pool size times active troops.
+            var active = new HashSet<string>(ActiveStubIds, StringComparer.Ordinal);
+
             // Try to find by id first
             if (!string.IsNullOrWhiteSpace(stringId))
             {
                 var co = MBObjectManager.Instance.GetObject<CharacterObject>(stringId);
                 if (co != null && co.StringId.StartsWith(CustomIdPrefix))
                 {
-                    if (!ActiveStubIds.Contains(co.StringId)) // not allocated yet
+                    if (!active.Contains(co.StringId)) // not allocated yet
                         return co;
                 }
             }
 
+            // Co-op: only the server picks stubs. A player's game takes exactly the ids the server
+            // sent (above); picking a free one here would give one id two meanings.
+            if (Mods.Coop.CoopState.IsClient)
+                throw new InvalidOperationException(
+                    $"Co-op: a player's game may not pick a troop stub (wanted '{stringId}')."
+                );
+
             // Else find any free stub
             foreach (var co in MBObjectManager.Instance.GetObjectTypeList<CharacterObject>())
                 if (co.StringId.StartsWith(CustomIdPrefix))
-                    if (!ActiveStubIds.Contains(co.StringId)) // not allocated yet
+                    if (!active.Contains(co.StringId)) // not allocated yet
                         return co;
 
             throw new InvalidOperationException("No free stub CharacterObject available.");
@@ -594,8 +605,46 @@ namespace Retinues.Game.Wrappers
             }
         }
 
-        public override WFaction Clan => IsCustom ? Player.Clan : null;
-        public override WFaction Kingdom => IsCustom ? Player.Kingdom : null;
+        // A custom troop belongs to the faction that owns its tree. A clan troop's kingdom is
+        // that clan's kingdom (when the clan rules it); a kingdom troop's clan is the ruling clan.
+        // Troops not yet bound to a faction fall back to the acting player's.
+        public override WFaction Clan
+        {
+            get
+            {
+                if (!IsCustom)
+                    return null;
+
+                return Faction switch
+                {
+                    WFaction { Base: TaleWorlds.CampaignSystem.Clan } f => f,
+                    WFaction { Base: TaleWorlds.CampaignSystem.Kingdom k } => WFaction.Get(
+                        k.RulingClan
+                    ),
+                    _ => Player.Clan,
+                };
+            }
+        }
+
+        public override WFaction Kingdom
+        {
+            get
+            {
+                if (!IsCustom)
+                    return null;
+
+                return Faction switch
+                {
+                    WFaction { Base: TaleWorlds.CampaignSystem.Kingdom } f => f,
+                    WFaction { Base: TaleWorlds.CampaignSystem.Clan c } => c.Kingdom != null
+                    && TroopOwners.IsOwnerKingdom(c.Kingdom)
+                    && c.Kingdom.RulingClan == c
+                        ? WFaction.Get(c.Kingdom)
+                        : null,
+                    _ => Player.Kingdom,
+                };
+            }
+        }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                    Basic Attributes                    //
@@ -1119,7 +1168,10 @@ namespace Retinues.Game.Wrappers
 
                 var targets = other.UpgradeTargets;
                 if (targets.Any(t => t != null && t.StringId == StringId))
-                    other.UpgradeTargets = [.. targets.Where(t => t != null && t.StringId != StringId)];
+                    other.UpgradeTargets =
+                    [
+                        .. targets.Where(t => t != null && t.StringId != StringId),
+                    ];
             }
         }
 
@@ -1293,6 +1345,10 @@ namespace Retinues.Game.Wrappers
             // Detach skills so parent/clone no longer share the same container
             var freshSkills = (MBCharacterSkills)
                 Activator.CreateInstance(typeof(MBCharacterSkills), nonPublic: true);
+            // Bannerlord Coop skips this constructor on players' games (only its server creates
+            // skill containers), which leaves the skill table null: fill it in.
+            if (freshSkills.Skills == null)
+                Reflector.SetPropertyValue(freshSkills, "Skills", new PropertyOwner<SkillObject>());
             Reflector.SetFieldValue(_co, "DefaultCharacterSkills", freshSkills);
 
             // Skills — raw reads: these values are written back as base values, so reading through

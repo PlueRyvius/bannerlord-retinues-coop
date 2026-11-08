@@ -841,13 +841,14 @@ namespace Retinues.GUI.Editor.VM.Troop.Panel
                         if (string.IsNullOrWhiteSpace(name))
                             return;
 
-                        var target = UpgradeManager.AddUpgradeTarget(State.Troop, name);
+                        var parent = State.Troop;
+                        var target = UpgradeManager.AddUpgradeTarget(parent, name);
 
                         // Refresh troops
                         State.UpdateFaction(State.Faction);
 
-                        // Select the new troop
-                        State.UpdateTroop(target);
+                        // Select the new troop (in co-op it arrives later: stay on the parent)
+                        State.UpdateTroop(target ?? parent);
                     },
                     negativeAction: () => { },
                     defaultInputText: State.Troop.Name

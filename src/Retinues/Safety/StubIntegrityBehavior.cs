@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
@@ -36,6 +38,9 @@ namespace Retinues.Safety
                 this,
                 () =>
                 {
+                    // Co-op: rosters are the server's; it repairs them and Coop sends the result.
+                    if (CoopState.IsClient)
+                        return;
                     CanonicalizeAllRosters("load");
                     ScrubRetinueUpgradeTargets();
                 }
@@ -44,7 +49,11 @@ namespace Retinues.Safety
             // ...and right before save (so a twin created mid-session is never persisted).
             CampaignEvents.OnBeforeSaveEvent.AddNonSerializedListener(
                 this,
-                () => CanonicalizeAllRosters("save")
+                () =>
+                {
+                    if (!CoopState.IsClient)
+                        CanonicalizeAllRosters("save");
+                }
             );
         }
 
@@ -105,7 +114,10 @@ namespace Retinues.Safety
             return CanonicalizeRoster(roster, manager.GetObject<CharacterObject>);
         }
 
-        internal static int CanonicalizeRoster(TroopRoster roster, Func<string, CharacterObject> resolve)
+        internal static int CanonicalizeRoster(
+            TroopRoster roster,
+            Func<string, CharacterObject> resolve
+        )
         {
             if (roster == null || resolve == null)
                 return 0;
@@ -114,9 +126,18 @@ namespace Retinues.Safety
             // can clamp saved XP, and can fail after the old row has already been removed.
             // These engine fields are checked before any mutation; a new engine layout
             // leaves the original roster intact instead of attempting a partial repair.
-            var dataField = typeof(TroopRoster).GetField("data", BindingFlags.Instance | BindingFlags.NonPublic);
-            var countField = typeof(TroopRoster).GetField("_count", BindingFlags.Instance | BindingFlags.NonPublic);
-            if (dataField?.FieldType != typeof(TroopRosterElement[]) || countField?.FieldType != typeof(int))
+            var dataField = typeof(TroopRoster).GetField(
+                "data",
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
+            var countField = typeof(TroopRoster).GetField(
+                "_count",
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
+            if (
+                dataField?.FieldType != typeof(TroopRosterElement[])
+                || countField?.FieldType != typeof(int)
+            )
                 return 0;
             var original = dataField.GetValue(roster) as TroopRosterElement[];
             int count = roster.Count;
@@ -135,20 +156,31 @@ namespace Retinues.Safety
                     continue;
 
                 var canonical = resolve(id);
-                if (canonical == null || ReferenceEquals(canonical, character)
-                    || canonical.StringId != id || canonical.IsHero || character.IsHero)
+                if (
+                    canonical == null
+                    || ReferenceEquals(canonical, character)
+                    || canonical.StringId != id
+                    || canonical.IsHero
+                    || character.IsHero
+                )
                     continue;
 
                 int target = -1;
                 for (int j = 0; j < count; j++)
-                    if (ReferenceEquals(repaired[j].Character, canonical)) { target = j; break; }
+                    if (ReferenceEquals(repaired[j].Character, canonical))
+                    {
+                        target = j;
+                        break;
+                    }
                 if (target < 0)
                     repaired[i].Character = canonical;
                 else
                 {
                     // Overflow aborts the entire plan before the original roster is touched.
                     repaired[target].Number = checked(repaired[target].Number + element.Number);
-                    repaired[target].WoundedNumber = checked(repaired[target].WoundedNumber + element.WoundedNumber);
+                    repaired[target].WoundedNumber = checked(
+                        repaired[target].WoundedNumber + element.WoundedNumber
+                    );
                     repaired[target].Xp = checked(repaired[target].Xp + element.Xp);
                     Array.Copy(repaired, i + 1, repaired, i, count - i - 1);
                     repaired[--count] = default;
@@ -165,6 +197,7 @@ namespace Retinues.Safety
             roster.UpdateVersion();
             return healed;
         }
+
         /// <summary>
         /// Drops retinue troops from upgrade trees. Retinues rank up in place and must never
         /// be upgrade targets — when older data leaves them linked into a tree, they become
@@ -175,7 +208,11 @@ namespace Retinues.Safety
         {
             int removed = 0;
 
-            foreach (var faction in new[] { Player.Clan, Player.Kingdom })
+            foreach (
+                var faction in TroopOwners
+                    .Clans.Select(WFaction.Get)
+                    .Concat(TroopOwners.Kingdoms.Select(WFaction.Get))
+            )
             {
                 if (faction == null)
                     continue;
