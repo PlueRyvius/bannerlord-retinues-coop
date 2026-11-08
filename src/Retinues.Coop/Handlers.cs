@@ -29,7 +29,10 @@ namespace Retinues.Coop.Handlers
         {
             ContainerProvider.TryGetContainer(out var scope);
             if (ReferenceEquals(scope, armedScope))
+            {
+                (handler as RtClientHandler)?.Tick();
                 return;
+            }
             Drop();
             if (scope == null)
                 return;
@@ -73,7 +76,13 @@ namespace Retinues.Coop.Handlers
         private readonly IMessageBroker broker;
         private readonly INetwork network;
         private int sequence;
-        private bool helloSent;
+        private DateTime lastHello = DateTime.MinValue;
+        private bool refused;
+
+        // A reply that reaches this game while Coop is still sending it the world is lost (the server answered a
+        // hello 18 s before Coop's join finished, and the reply never arrived), so hello is said again until the
+        // server's acceptance is here.
+        private static readonly TimeSpan HelloRetry = TimeSpan.FromSeconds(3);
 
         public RtClientHandler(IMessageBroker broker, INetwork network)
         {
@@ -90,6 +99,18 @@ namespace Retinues.Coop.Handlers
                 SayHello();
         }
 
+        /// <summary>Every application tick: says hello again until the server has accepted this game.</summary>
+        public void Tick()
+        {
+            if (
+                lastHello != DateTime.MinValue
+                && !refused
+                && !CoopBridge.Ready
+                && DateTime.UtcNow - lastHello > HelloRetry
+            )
+                SayHello();
+        }
+
         public void Dispose()
         {
             broker.Unsubscribe<CampaignReady>(HandleCampaignReady);
@@ -103,9 +124,9 @@ namespace Retinues.Coop.Handlers
 
         private void SayHello()
         {
-            if (helloSent)
+            if (CoopBridge.Ready)
                 return;
-            helloSent = true;
+            lastHello = DateTime.UtcNow;
             network.SendAll(new RtHello { ProtocolVersion = CoopBridge.ProtocolVersion });
         }
 
@@ -117,12 +138,15 @@ namespace Retinues.Coop.Handlers
                 Log.Warn(
                     $"Co-op: the server did not accept this game ({reply.Detail}; server protocol {reply.ProtocolVersion}, here {CoopBridge.ProtocolVersion}). Troop edits are off."
                 );
+                refused = true;
                 return;
             }
 
             GameThread.RunSafe(
                 () =>
                 {
+                    if (CoopBridge.Ready)
+                        return; // the reply to a repeated hello
                     CoopBridge.ApplyServerSettings(reply.Settings ?? []);
                     CoopBridge.SendAction = (op, args) =>
                         network.SendAll(
