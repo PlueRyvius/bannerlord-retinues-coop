@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Retinues' Bannerlord Coop adapter: its network messages and handlers. It references Coop's assemblies, so
+       Retinues loads it by hand only when Coop is in the game (Mods/Coop/CoopModule.cs). Ships next to Retinues.dll. -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Retinues.Coop</AssemblyName>
+    <RootNamespace>Retinues.Coop</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <!-- Bannerlord Coop, Steam Workshop item 3770450698 (override with -p:CoopBin=...). -->
+    <CoopBin Condition="'$(CoopBin)' == ''">$(BannerlordGameDir)\..\..\workshop\content\261550\3770450698\bin\Win64_Shipping_Client</CoopBin>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Retinues\Retinues.csproj" Private="false" />
+    <Reference Include="Autofac"><HintPath>$(CoopBin)\Autofac.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces"><HintPath>$(CoopBin)\Microsoft.Bcl.AsyncInterfaces.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Common"><HintPath>$(CoopBin)\Common.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="GameInterface"><HintPath>$(CoopBin)\GameInterface.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="LiteNetLib"><HintPath>$(CoopBin)\LiteNetLib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="protobuf-net"><HintPath>$(CoopBin)\protobuf-net.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="protobuf-net.Core"><HintPath>$(CoopBin)\protobuf-net.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.Library"><HintPath>$(ReferenceRoot)\TaleWorlds.Library.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.Core"><HintPath>$(ReferenceRoot)\TaleWorlds.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.ObjectSystem"><HintPath>$(ReferenceRoot)\TaleWorlds.ObjectSystem.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="TaleWorlds.CampaignSystem"><HintPath>$(ReferenceRoot)\TaleWorlds.CampaignSystem.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <!-- With -p:DeployToGame=true, ship the adapter next to Retinues.dll (Retinues' own deploy cleans the folder first). -->
+  <Target Name="DeployCoopAdapter" AfterTargets="Build" Condition="'$(DeployToGame)' == 'true'">
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(BannerlordGameDir)\Modules\Retinues\bin\Win64_Shipping_Client\"
+          SkipUnchangedFiles="true"
+          OverwriteReadOnlyFiles="true" />
+  </Target>
+</Project>
