@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Actions;
@@ -51,6 +52,9 @@ namespace Retinues.Safety.Patches
     {
         static void Prefix(Hero hero, Settlement targetSettlement, MobileParty targetParty)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             try
             {
                 var src = hero?.PartyBelongedTo;

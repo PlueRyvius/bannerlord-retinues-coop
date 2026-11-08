@@ -6,6 +6,7 @@ using Retinues.Doctrines.Catalog;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.Managers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
@@ -62,6 +63,9 @@ namespace Retinues.Features.Experience
 
         private void OnMissionStarted(IMission mission)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             Log.Debug("Adding TroopXpMissionBehavior.");
 
             // Cast to concrete type
@@ -77,6 +81,9 @@ namespace Retinues.Features.Experience
 
         private void OnDailyTickParty(MobileParty mobileParty)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (!TroopOwners.IsPlayerParty(mobileParty))
                 return; // only care about players' own parties
 

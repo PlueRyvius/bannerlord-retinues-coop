@@ -5,6 +5,7 @@ using Retinues.Configuration;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.GUI.Helpers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.GameState;
@@ -95,6 +96,9 @@ namespace Retinues.Features.Unlocks
         /// </summary>
         private void OnMissionStarted(IMission mission)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             // Return if the feature is disabled
             if (!Config.UnlockItemsFromKills || Config.AllEquipmentUnlocked)
                 return;
@@ -114,6 +118,9 @@ namespace Retinues.Features.Unlocks
         /// </summary>
         private void OnMapEventEnded(MapEvent mapEvent)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             // Return if the feature is disabled
             if (!Config.UnlockItemsFromKills || Config.AllEquipmentUnlocked)
                 return;
@@ -188,6 +195,9 @@ namespace Retinues.Features.Unlocks
 
         private void OnTick(float dt)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (_pendingNotifications.Count == 0)
                 return;
 

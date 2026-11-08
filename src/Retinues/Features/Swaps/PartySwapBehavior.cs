@@ -1,4 +1,5 @@
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
@@ -29,6 +30,9 @@ namespace Retinues.Features.Swaps
 
         private void OnDailyTickParty(MobileParty party)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (party == null)
                 return;
 

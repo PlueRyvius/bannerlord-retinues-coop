@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
@@ -37,6 +38,9 @@ namespace Retinues.Safety
                 this,
                 () =>
                 {
+                    // Co-op: rosters are the server's; it repairs them and Coop sends the result.
+                    if (CoopState.IsClient)
+                        return;
                     CanonicalizeAllRosters("load");
                     ScrubRetinueUpgradeTargets();
                 }
@@ -45,7 +49,11 @@ namespace Retinues.Safety
             // ...and right before save (so a twin created mid-session is never persisted).
             CampaignEvents.OnBeforeSaveEvent.AddNonSerializedListener(
                 this,
-                () => CanonicalizeAllRosters("save")
+                () =>
+                {
+                    if (!CoopState.IsClient)
+                        CanonicalizeAllRosters("save");
+                }
             );
         }
 

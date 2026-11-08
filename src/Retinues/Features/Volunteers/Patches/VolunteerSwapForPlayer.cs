@@ -4,6 +4,7 @@ using HarmonyLib;
 using Retinues.Configuration;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Troops;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.CampaignBehaviors;
@@ -225,6 +226,9 @@ namespace Retinues.Features.Volunteers.Patches
         /// </summary>
         private static void TryBeginSwap()
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             // Do not stack multiple temporary swaps.
             if (_snapshot != null)
                 return;

@@ -5,6 +5,7 @@ using Retinues.Configuration;
 using Retinues.Doctrines.Model;
 using Retinues.Game.Events;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Actions;
@@ -93,6 +94,9 @@ namespace Retinues.Doctrines
 
         private void OnDailyTick()
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             NotifyFeats((feat, args) => feat.OnDailyTick());
         }
 
@@ -100,6 +104,9 @@ namespace Retinues.Doctrines
 
         private void OnMissionStarted(IMission iMission)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (iMission is not Mission mission)
                 return; // Not a battle or a tournament
 

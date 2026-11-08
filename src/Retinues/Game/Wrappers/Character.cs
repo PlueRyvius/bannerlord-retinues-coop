@@ -72,6 +72,13 @@ namespace Retinues.Game.Wrappers
                 }
             }
 
+            // Co-op: only the server picks stubs. A player's game takes exactly the ids the server
+            // sent (above); picking a free one here would give one id two meanings.
+            if (Mods.Coop.CoopState.IsClient)
+                throw new InvalidOperationException(
+                    $"Co-op: a player's game may not pick a troop stub (wanted '{stringId}')."
+                );
+
             // Else find any free stub
             foreach (var co in MBObjectManager.Instance.GetObjectTypeList<CharacterObject>())
                 if (co.StringId.StartsWith(CustomIdPrefix))

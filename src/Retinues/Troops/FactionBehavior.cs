@@ -4,6 +4,7 @@ using System.Linq;
 using Retinues.Configuration;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Troops.Save;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
@@ -353,6 +354,9 @@ namespace Retinues.Troops
             ChangeOwnerOfSettlementAction.ChangeOwnerOfSettlementDetail d
         )
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             var clan = WFaction.Get(n?.Clan);
             if (clan?.IsPlayerClan != true)
                 return; // Not a player clan gaining a fief
@@ -365,6 +369,9 @@ namespace Retinues.Troops
 
         void KingdomUnlock(Kingdom k)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             var kingdom = WFaction.Get(k);
             if (kingdom?.IsPlayerKingdom != true)
                 return; // Not a player kingdom

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
@@ -50,6 +51,9 @@ namespace Retinues.Safety.Sanitizer
         /// </summary>
         private void OnGameLoadFinished()
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             Log.Info("Performing safety checks...");
 
             Sanitize();

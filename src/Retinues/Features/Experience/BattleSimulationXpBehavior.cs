@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Retinues.Game.Events;
 using Retinues.Game.Wrappers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.MapEvents;
@@ -42,6 +43,9 @@ namespace Retinues.Features.Experience
             PartyBase defenderParty
         )
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (me == null)
                 return;
 
@@ -121,6 +125,9 @@ namespace Retinues.Features.Experience
         [SafeMethod]
         private void OnMapEventEnded(MapEvent me)
         {
+            if (CoopState.IsClient)
+                return; // Co-op: the server runs this for everyone
+
             if (me == null)
                 return;
             if (!_snapshots.TryGetValue(me, out var snap))
