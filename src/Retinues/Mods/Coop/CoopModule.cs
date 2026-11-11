@@ -37,6 +37,7 @@ namespace Retinues.Mods.Coop
             if (CoopState.IsServerProcess)
                 Configuration.Config.EnsureLoadedWithoutMcm();
             CoopBridge.TroopsChanged += RefreshEditor;
+            CoopBridge.UnlocksChanged += RefreshEquipmentList;
             TryLoadAdapter();
         }
 
@@ -76,6 +77,10 @@ namespace Retinues.Mods.Coop
             {
                 Log.Warn("Co-op: sending troops failed: " + e.GetBaseException().Message);
             }
+
+            // A player's game gets no campaign ticks; show unlocks the server announced here.
+            if (CoopState.IsClient)
+                Features.Unlocks.UnlocksBehavior.Instance?.ShowPendingNotifications();
         }
 
         private static void TryLoadAdapter()
@@ -153,6 +158,21 @@ namespace Retinues.Mods.Coop
             catch (Exception e)
             {
                 Log.Exception(e, "Co-op: editor refresh failed.");
+            }
+        }
+
+        /// <summary>The server unlocked items: rebuild the open editor's equipment list so they show.</summary>
+        private static void RefreshEquipmentList()
+        {
+            try
+            {
+                if (ClanScreen.Instance == null || State.Troop == null)
+                    return;
+                State.UpdateEquipment(State.Equipment);
+            }
+            catch (Exception e)
+            {
+                Log.Exception(e, "Co-op: equipment list refresh failed.");
             }
         }
     }

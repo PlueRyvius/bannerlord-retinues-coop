@@ -193,11 +193,15 @@ namespace Retinues.Features.Unlocks
             _newlyUnlocked.Clear();
         }
 
-        private void OnTick(float dt)
-        {
-            if (CoopState.IsClient)
-                return; // Co-op: the server runs this for everyone
+        private void OnTick(float dt) => ShowPendingNotifications();
 
+        /// <summary>
+        /// Shows the queued unlock notification once the player is on the world map. Co-op: on a
+        /// player's game the queue holds only what the server announced, and the campaign tick does
+        /// not run there (the server drives time), so Retinues' co-op tick calls this each frame.
+        /// </summary>
+        internal void ShowPendingNotifications()
+        {
             if (_pendingNotifications.Count == 0)
                 return;
 
@@ -284,6 +288,18 @@ namespace Retinues.Features.Unlocks
         }
 
         /// <summary>
+        /// Co-op, a player's game: takes the campaign's unlocks and progress as the server holds
+        /// them. Which of them to announce is the server's call (a troop's own gear unlocks
+        /// silently, as in single player): see <see cref="ShowServerAnnouncement"/>.
+        /// </summary>
+        internal void ApplyServerState(List<string> unlocked, Dictionary<string, int> progress)
+        {
+            _unlockedItemIds = [.. unlocked];
+            _unlockedSet = null;
+            _progressByItemId = progress;
+        }
+
+        /// <summary>
         /// Resets all unlocks and progress.
         /// </summary>
         public void Reset()
@@ -315,7 +331,27 @@ namespace Retinues.Features.Unlocks
 
             Log.Debug($"QueueUnlockNotification: queuing {list.Count} items.");
             _pendingNotifications.AddRange(list);
+
+            // Co-op: the server has no screen; its players show what it would have.
+            if (CoopState.IsServer)
+            {
+                AnnouncedForPlayers.AddRange(list.Select(i => i.StringId));
+                AnnounceSequence++;
+            }
         }
+
+        /// <summary>
+        /// Co-op server: items announced since the last time the players were sent them, and a
+        /// number that changes with every announcement, so each player's game shows a batch once.
+        /// </summary>
+        internal static List<string> AnnouncedForPlayers { get; } = [];
+        internal static int AnnounceSequence { get; private set; }
+
+        /// <summary>Co-op, a player's game: shows the items the server announced as unlocked.</summary>
+        internal void ShowServerAnnouncement(IEnumerable<string> itemIds) =>
+            QueueUnlockNotification(
+                itemIds.Select(id => MBObjectManager.Instance.GetObject<ItemObject>(id))
+            );
 
         /// <summary>
         /// Returns true if the player is currently on the world map state.

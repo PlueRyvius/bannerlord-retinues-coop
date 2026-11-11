@@ -5,6 +5,8 @@ using System.Linq;
 using Retinues.Configuration;
 using Retinues.Features.AutoJoin;
 using Retinues.Features.Experience;
+using Retinues.Features.Stocks;
+using Retinues.Features.Unlocks;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.Troops.Save;
@@ -29,7 +31,7 @@ namespace Retinues.Mods.Coop
     public static class CoopBridge
     {
         /// <summary>Goes up whenever a message or payload changes shape. Both sides must agree.</summary>
-        public const int ProtocolVersion = 2;
+        public const int ProtocolVersion = 3;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                     Adapter-filled                     //
@@ -48,6 +50,7 @@ namespace Retinues.Mods.Coop
         public static void SessionEnded()
         {
             _lastApplied.Clear();
+            _unlocksSeen = false;
             Ready = false;
             SendAction = null;
             Broadcast = null;
@@ -222,6 +225,9 @@ namespace Retinues.Mods.Coop
                     continue;
                 _lastSent[id] = payload;
                 Broadcast(id, payload);
+                // Announced unlocks go out once; the sequence number stays, so nothing repeats.
+                if (id == UnlocksKey)
+                    UnlocksBehavior.AnnouncedForPlayers.Clear();
             }
         }
 
@@ -254,7 +260,46 @@ namespace Retinues.Mods.Coop
                 }
                 result.Add((faction.StringId, SaveDataCodec.Encode(snapshot)));
             }
+            result.Add((UnlocksKey, SaveDataCodec.Encode(CaptureUnlocks())));
             return result;
+        }
+
+        /// <summary>
+        /// The snapshot id under which the campaign's unlocks and stocks travel, next to the
+        /// factions' troops. No faction id contains a colon.
+        /// </summary>
+        public const string UnlocksKey = "retinues:unlocks";
+
+        private static CoopUnlocks CaptureUnlocks()
+        {
+            var state = new CoopUnlocks();
+            var unlocks = UnlocksBehavior.Instance;
+            if (unlocks != null)
+            {
+                state.Unlocked =
+                [
+                    .. unlocks.UnlockedItemIds.OrderBy(id => id, StringComparer.Ordinal),
+                ];
+                foreach (
+                    var kv in unlocks.ProgressByItemId.OrderBy(kv => kv.Key, StringComparer.Ordinal)
+                )
+                {
+                    state.ProgressIds.Add(kv.Key);
+                    state.Progress.Add(kv.Value);
+                }
+            }
+            var stocks = StocksBehavior.Instance;
+            if (stocks != null)
+                foreach (
+                    var kv in stocks.StocksByItemId.OrderBy(kv => kv.Key, StringComparer.Ordinal)
+                )
+                {
+                    state.StockIds.Add(kv.Key);
+                    state.Stocks.Add(kv.Value);
+                }
+            state.AnnounceSequence = UnlocksBehavior.AnnounceSequence;
+            state.Announced = [.. UnlocksBehavior.AnnouncedForPlayers];
+            return state;
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
@@ -279,6 +324,12 @@ namespace Retinues.Mods.Coop
         {
             if (!CoopState.IsClient || Campaign.Current == null)
                 return;
+
+            if (factionId == UnlocksKey)
+            {
+                ApplyUnlocks(payload);
+                return;
+            }
 
             IFaction faction =
                 (IFaction)Clan.All.FirstOrDefault(c => c.StringId == factionId)
@@ -359,6 +410,59 @@ namespace Retinues.Mods.Coop
         /// when the faction's whole tree was replaced (the editor refreshes).
         /// </summary>
         public static event Action<WFaction, HashSet<string>> TroopsChanged;
+
+        /// <summary>Client: raised after the server's unlocks changed which items are unlocked.</summary>
+        public static event Action UnlocksChanged;
+
+        // Set once this session's first unlock state is in: that one is not announced.
+        private static bool _unlocksSeen;
+
+        // The server's announcement number last seen here.
+        private static int _lastAnnounce;
+
+        /// <summary>
+        /// Client: takes the campaign's unlocks, progress and stocks as the server holds them.
+        /// The editor reads these to list equippable items and quote prices.
+        /// </summary>
+        private static void ApplyUnlocks(string payload)
+        {
+            if (_lastApplied.TryGetValue(UnlocksKey, out var last) && last == payload)
+                return;
+            _lastApplied[UnlocksKey] = payload;
+
+            var state = SaveDataCodec.Decode<CoopUnlocks>(payload);
+            var unlocks = UnlocksBehavior.Instance;
+            var before = unlocks?.UnlockedItemIds.Count ?? 0;
+            if (unlocks != null)
+            {
+                var progress = new Dictionary<string, int>();
+                for (int i = 0; i < state.ProgressIds.Count && i < state.Progress.Count; i++)
+                    progress[state.ProgressIds[i]] = state.Progress[i];
+                unlocks.ApplyServerState(state.Unlocked ?? [], progress);
+
+                // Show what the server announced, once; not the backlog a joining player finds.
+                if (
+                    _unlocksSeen
+                    && state.AnnounceSequence != _lastAnnounce
+                    && state.Announced?.Count > 0
+                )
+                    unlocks.ShowServerAnnouncement(state.Announced);
+            }
+            _lastAnnounce = state.AnnounceSequence;
+
+            var stocks = new Dictionary<string, int>();
+            for (int i = 0; i < state.StockIds.Count && i < state.Stocks.Count; i++)
+                stocks[state.StockIds[i]] = state.Stocks[i];
+            StocksBehavior.ApplyServerState(stocks);
+
+            var changed = (unlocks?.UnlockedItemIds.Count ?? 0) != before;
+            _unlocksSeen = true;
+            Log.Debug(
+                $"Co-op: loaded {state.Unlocked?.Count ?? 0} unlocked item(s) and {stocks.Count} stock(s) from the server."
+            );
+            if (changed)
+                UnlocksChanged?.Invoke();
+        }
 
         /// <summary>
         /// The topmost records that differ from the faction's live troops, when the snapshot has the same troops in

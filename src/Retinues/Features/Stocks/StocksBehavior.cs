@@ -68,6 +68,15 @@ namespace Retinues.Features.Stocks
         }
 
         /// <summary>
+        /// Co-op, a player's game: takes the campaign's item stocks as the server holds them.
+        /// </summary>
+        internal static void ApplyServerState(Dictionary<string, int> stocks)
+        {
+            if (Instance != null)
+                Instance._stocksByItemId = stocks;
+        }
+
+        /// <summary>
         /// Adds delta to the stock count for an item (removes if count <= 0).
         /// </summary>
         public static void Add(string itemId, int delta)
