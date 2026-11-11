@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Retinues.Features.AutoJoin;
+using Retinues.Features.Unlocks;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.Managers;
@@ -36,6 +37,10 @@ namespace Retinues.Mods.Coop
         public const string JoinCap = "joinCap"; // troop, cap
         public const string EnsureTroops = "ensureTroops"; // faction
         public const string Appearance = "appearance"; // troop, then CoopBridge.AppearanceArgs
+        public const string UnlockCounts = "unlockCounts"; // "kill" | "discard", then item, count pairs
+
+        // A single report cannot add more than this to one item's progress.
+        private const int MaxReportedPerItem = 1000;
 
         public static (bool Ok, string Message) Run(Hero hero, string op, IList<string> a)
         {
@@ -145,6 +150,23 @@ namespace Retinues.Mods.Coop
                     case Appearance:
                         ApplyAppearance(OwnTroop(hero, a, 0), a);
                         return (true, null);
+                    case UnlockCounts:
+                    {
+                        var counts = new Dictionary<ItemObject, int>();
+                        for (int i = 1; i + 1 < a.Count; i += 2)
+                        {
+                            var item = MBObjectManager.Instance.GetObject<ItemObject>(a[i]);
+                            var n = Math.Min(Int(a, i + 1), MaxReportedPerItem);
+                            if (item == null || n <= 0)
+                                continue;
+                            counts[item] = counts.TryGetValue(item, out var c) ? c + n : n;
+                        }
+                        UnlocksBehavior.Instance?.AddReportedCounts(
+                            counts,
+                            kills: Arg(a, 0) == "kill"
+                        );
+                        return (true, null);
+                    }
                     default:
                         return (false, $"Unknown troop edit '{op}'.");
                 }

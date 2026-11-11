@@ -96,8 +96,8 @@ namespace Retinues.Features.Unlocks
         /// </summary>
         private void OnMissionStarted(IMission mission)
         {
-            if (CoopState.IsClient)
-                return; // Co-op: the server runs this for everyone
+            // Co-op: battles run on the players' games (the server runs none), so each of them
+            // counts its own kills there and reports them (ReportToServer).
 
             // Return if the feature is disabled
             if (!Config.UnlockItemsFromKills || Config.AllEquipmentUnlocked)
@@ -140,7 +140,13 @@ namespace Retinues.Features.Unlocks
         /// <summary>
         /// Handles items discarded by the player to contribute to unlock progress.
         /// </summary>
-        private void OnItemsDiscardedByPlayer(ItemRoster roster)
+        private void OnItemsDiscardedByPlayer(ItemRoster roster) => CountDiscards(roster);
+
+        /// <summary>
+        /// Counts discarded items toward unlocks (reported to the server on a co-op player's game,
+        /// where CoopDiscardPatch calls this in place of the game's event).
+        /// </summary>
+        internal void CountDiscards(ItemRoster roster)
         {
             // Return if the feature is disabled
             if (!Config.UnlockItemsFromDiscards || Config.AllEquipmentUnlocked)
@@ -185,6 +191,8 @@ namespace Retinues.Features.Unlocks
             Log.Debug(
                 $"OnItemsDiscardedByPlayer: {counts.Count} stacks will contribute to unlock progress."
             );
+            if (ReportToServer(counts, kills: false))
+                return;
             AddUnlockCounts(counts, addCultureBonuses: false);
 
             // Delay popup until world map
@@ -415,6 +423,38 @@ namespace Retinues.Features.Unlocks
 
             if (randomItemsByTier.Count > 0)
                 AddUnlockCounts(randomItemsByTier, addCultureBonuses: false);
+        }
+
+        /// <summary>
+        /// Co-op, a player's game: sends unlock progress counted here (kills by this player's own
+        /// troops, or items this player discarded) to the server, which holds the campaign's unlocks.
+        /// Returns false outside a session, where the caller adds the counts itself.
+        /// </summary>
+        internal static bool ReportToServer(Dictionary<ItemObject, int> counts, bool kills)
+        {
+            if (!CoopState.IsClient)
+                return false;
+            if (counts.Count == 0)
+                return true;
+
+            var args = new List<object> { kills ? "kill" : "discard" };
+            foreach (var kv in counts)
+            {
+                args.Add(kv.Key.StringId);
+                args.Add(kv.Value);
+            }
+            return CoopBridge.Relay(CoopActions.UnlockCounts, [.. args]);
+        }
+
+        /// <summary>
+        /// Co-op server: adds unlock progress a player's game reported (as that player, so kill
+        /// unlocks get their culture bonuses) and announces what it unlocked to every player.
+        /// </summary>
+        internal void AddReportedCounts(Dictionary<ItemObject, int> counts, bool kills)
+        {
+            AddUnlockCounts(counts, addCultureBonuses: kills);
+            QueueUnlockNotification(_newlyUnlocked);
+            _newlyUnlocked.Clear();
         }
 
         /// <summary>
