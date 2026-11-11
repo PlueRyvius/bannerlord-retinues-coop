@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -122,8 +123,12 @@ namespace Retinues.Mods.Coop
             }
         }
 
-        /// <summary>A snapshot replaced a faction's troops: refresh the editor if it shows that faction.</summary>
-        private static void RefreshEditor(WFaction faction)
+        /// <summary>
+        /// A snapshot updated a faction's troops: refresh the editor if it shows that faction. When only some troops
+        /// were rebuilt (<paramref name="rebuilt"/>), only the troop on screen is refreshed, and only if it was one of
+        /// them: rebuilding the whole editor takes about half a second.
+        /// </summary>
+        private static void RefreshEditor(WFaction faction, HashSet<string> rebuilt)
         {
             try
             {
@@ -133,6 +138,13 @@ namespace Retinues.Mods.Coop
                     return;
 
                 var selected = State.Troop?.StringId;
+                if (rebuilt != null)
+                {
+                    if (selected != null && rebuilt.Contains(selected))
+                        State.UpdateTroop(new WCharacter(selected));
+                    return;
+                }
+
                 State.UpdateFaction(shown);
                 var again = shown.Troops.FirstOrDefault(t => t?.StringId == selected);
                 if (again != null)

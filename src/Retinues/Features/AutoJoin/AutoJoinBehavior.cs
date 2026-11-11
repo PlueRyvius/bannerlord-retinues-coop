@@ -219,12 +219,21 @@ namespace Retinues.Features.AutoJoin
         {
             if (troop == null || !troop.IsRetinue)
                 return;
-            if (CoopBridge.Relay(CoopActions.JoinCap, troop.StringId, cap))
-                return;
+            // Co-op: the server sets it and sends it back with the troops. The limit is shown here at once, so a
+            // second click builds on the first; only the server hires, so this copy only feeds the editor.
+            CoopBridge.Relay(CoopActions.JoinCap, troop.StringId, cap);
+            Store(troop.StringId, cap);
+        }
+
+        /// <summary>Co-op, a player's game: the join limit the server holds for a retinue.</summary>
+        internal static void ApplyServerJoinCap(string troopId, int cap) => Store(troopId, cap);
+
+        private static void Store(string troopId, int cap)
+        {
             if (cap <= 0)
-                Instance._caps.Remove(troop.StringId);
+                Instance._caps.Remove(troopId);
             else
-                Instance._caps[troop.StringId] = cap;
+                Instance._caps[troopId] = cap;
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
