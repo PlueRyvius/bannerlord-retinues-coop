@@ -71,6 +71,10 @@ namespace Retinues.Features.Unlocks
                 }
             }
 
+            // Co-op: the server holds the campaign's unlocks.
+            if (UnlocksBehavior.ReportToServer(counts, kills: true))
+                return;
+
             // Add the counts to the owner's battle counts
             UnlocksBehavior.Instance.AddUnlockCounts(counts);
         }
