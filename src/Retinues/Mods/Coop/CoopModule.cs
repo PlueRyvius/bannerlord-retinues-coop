@@ -52,6 +52,8 @@ namespace Retinues.Mods.Coop
                 return;
 
             CoopState.Tick();
+            if (CoopState.IsServerProcess)
+                CoopRecruits.EnsurePatched();
 
             if (_sessionTick != null)
             {
