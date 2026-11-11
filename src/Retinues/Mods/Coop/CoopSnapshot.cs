@@ -6,7 +6,7 @@ namespace Retinues.Mods.Coop
 {
     /// <summary>
     /// One faction's troops as the co-op server holds them: the save data Retinues writes for it, plus each
-    /// troop's XP pool, which lives in another behaviour's save data. Encoded with SaveDataCodec; never saved.
+    /// troop's XP pool and each retinue's join limit, which live in other behaviours' save data. Encoded with SaveDataCodec; never saved.
     /// </summary>
     public sealed class CoopSnapshot
     {
@@ -18,5 +18,12 @@ namespace Retinues.Mods.Coop
 
         [SaveableField(3)]
         public List<int> XpPools = [];
+
+        // Each retinue's join limit, which lives in the auto-join behaviour's save data.
+        [SaveableField(4)]
+        public List<string> JoinCapTroopIds = [];
+
+        [SaveableField(5)]
+        public List<int> JoinCaps = [];
     }
 }

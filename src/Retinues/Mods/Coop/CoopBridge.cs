@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Retinues.Configuration;
+using Retinues.Features.AutoJoin;
 using Retinues.Features.Experience;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
@@ -28,7 +29,7 @@ namespace Retinues.Mods.Coop
     public static class CoopBridge
     {
         /// <summary>Goes up whenever a message or payload changes shape. Both sides must agree.</summary>
-        public const int ProtocolVersion = 1;
+        public const int ProtocolVersion = 2;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                     Adapter-filled                     //
@@ -244,6 +245,11 @@ namespace Retinues.Mods.Coop
                         continue;
                     snapshot.XpTroopIds.Add(troop.StringId);
                     snapshot.XpPools.Add(TroopXpBehavior.Get(troop));
+                    if (troop.IsRetinue)
+                    {
+                        snapshot.JoinCapTroopIds.Add(troop.StringId);
+                        snapshot.JoinCaps.Add(AutoJoinBehavior.GetJoinCap(troop));
+                    }
                 }
                 result.Add((faction.StringId, SaveDataCodec.Encode(snapshot)));
             }
@@ -301,6 +307,13 @@ namespace Retinues.Mods.Coop
                 TroopXpBehavior.Set(
                     WCharacter.FromStringId(snapshot.XpTroopIds[i]),
                     snapshot.XpPools[i]
+                );
+
+            // Join limits: the editor shows them, the server hires by them.
+            for (int i = 0; i < snapshot.JoinCapTroopIds.Count && i < snapshot.JoinCaps.Count; i++)
+                AutoJoinBehavior.ApplyServerJoinCap(
+                    snapshot.JoinCapTroopIds[i],
+                    snapshot.JoinCaps[i]
                 );
 
             // What the server holds is now what this game shows; don't echo it back.
