@@ -47,6 +47,7 @@ namespace Retinues.Mods.Coop
         /// <summary>The session ended: nothing is sent or held any more.</summary>
         public static void SessionEnded()
         {
+            _lastApplied.Clear();
             Ready = false;
             SendAction = null;
             Broadcast = null;
@@ -265,6 +266,11 @@ namespace Retinues.Mods.Coop
             StringComparer.Ordinal
         );
 
+        // The last snapshot applied, per faction id: the server can send the same troops twice.
+        private static readonly Dictionary<string, string> _lastApplied = new(
+            StringComparer.Ordinal
+        );
+
         /// <summary>
         /// Client: loads one faction's troops as the server holds them, through the same path a save load uses.
         /// The faction's stub ids are released first so every troop lands on the exact stub the server uses.
@@ -284,22 +290,40 @@ namespace Retinues.Mods.Coop
                 return;
             }
 
+            if (_lastApplied.TryGetValue(factionId, out var last) && last == payload)
+                return;
+            _lastApplied[factionId] = payload;
+
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             var snapshot = SaveDataCodec.Decode<CoopSnapshot>(payload);
             var data = snapshot.Troops ?? new FactionSaveData();
-
-            // Release what this faction holds now and what the snapshot will claim.
-            var release = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var troop in wrapper.Troops)
-                if (troop?.IsCustom == true)
-                    release.Add(troop.StringId);
-            if (_clientIds.TryGetValue(factionId, out var previous))
-                release.UnionWith(previous);
             var incoming = IdsOf(data);
-            release.UnionWith(incoming);
-            WCharacter.ActiveStubIds.RemoveAll(release.Contains);
 
-            wrapper.ClearRoots();
-            data.Apply(wrapper);
+            // Rebuilding a faction's troops takes a while (about 10 ms a troop), and the editor stalls while it
+            // runs. When the tree has the same troops in the same places, rebuild only the troops that changed.
+            var changed = ChangedTroops(wrapper, data);
+            if (changed == null)
+            {
+                // Release what this faction holds now and what the snapshot will claim.
+                var release = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var troop in wrapper.Troops)
+                    if (troop?.IsCustom == true)
+                        release.Add(troop.StringId);
+                if (_clientIds.TryGetValue(factionId, out var previous))
+                    release.UnionWith(previous);
+                release.UnionWith(incoming);
+                WCharacter.ActiveStubIds.RemoveAll(release.Contains);
+
+                wrapper.ClearRoots();
+                data.Apply(wrapper);
+            }
+            else
+            {
+                // Each record rebuilds its troop and everything below it, on the troop it already is.
+                foreach (var record in changed)
+                    record.DeserializeInternal(new WCharacter(record.StringId));
+                wrapper.InvalidateCategoryCache();
+            }
             _clientIds[factionId] = incoming;
 
             // XP pools: the editor checks them before letting a skill go up.
@@ -321,12 +345,116 @@ namespace Retinues.Mods.Coop
                 if (troop?.IsCustom == true)
                     _appearanceSent[troop.StringId] = string.Join("\u001f", AppearanceArgs(troop));
 
-            Log.Debug($"Co-op: loaded {incoming.Count} troop(s) of '{factionId}' from the server.");
-            TroopsChanged?.Invoke(wrapper);
+            var applyMs = watch.ElapsedMilliseconds;
+            TroopsChanged?.Invoke(wrapper, changed == null ? null : RebuiltIds(changed));
+            Log.Debug(
+                $"Co-op: loaded '{factionId}' from the server: {incoming.Count} troop(s), "
+                    + (changed == null ? "all rebuilt" : $"{changed.Count} rebuilt")
+                    + $" in {applyMs} ms, editor refresh {watch.ElapsedMilliseconds - applyMs} ms."
+            );
         }
 
-        /// <summary>Client: raised after a faction's troops were replaced (the editor refreshes).</summary>
-        public static event Action<WFaction> TroopsChanged;
+        /// <summary>
+        /// Client: raised after a faction's troops were updated, with the ids of the troops that were rebuilt, or null
+        /// when the faction's whole tree was replaced (the editor refreshes).
+        /// </summary>
+        public static event Action<WFaction, HashSet<string>> TroopsChanged;
+
+        /// <summary>
+        /// The topmost records that differ from the faction's live troops, when the snapshot has the same troops in
+        /// the same places (roots, parents, upgrade order, captains); null when the tree itself changed.
+        /// </summary>
+        private static List<TroopSaveData> ChangedTroops(WFaction wrapper, FactionSaveData data)
+        {
+            try
+            {
+                var live = Roots(new FactionSaveData(wrapper));
+                var want = Roots(data);
+                for (int i = 0; i < want.Length; i++)
+                    if (Shape(live[i]) != Shape(want[i]))
+                        return null;
+
+                var changed = new List<TroopSaveData>();
+                void Compare(TroopSaveData have, TroopSaveData next)
+                {
+                    if (next == null)
+                        return;
+                    if (Flat(have) != Flat(next))
+                    {
+                        changed.Add(next);
+                        return;
+                    }
+                    for (int i = 0; i < next.UpgradeTargets.Count; i++)
+                        Compare(have.UpgradeTargets[i], next.UpgradeTargets[i]);
+                }
+                for (int i = 0; i < want.Length; i++)
+                    Compare(live[i], want[i]);
+                return changed;
+            }
+            catch (Exception e)
+            {
+                Log.Exception(e, "Co-op: comparing troops failed; rebuilding them all.");
+                return null;
+            }
+        }
+
+        private static TroopSaveData[] Roots(FactionSaveData data) =>
+            [
+                data.RetinueElite,
+                data.RetinueBasic,
+                data.RootElite,
+                data.RootBasic,
+                data.MilitiaMelee,
+                data.MilitiaMeleeElite,
+                data.MilitiaRanged,
+                data.MilitiaRangedElite,
+                data.CaravanGuard,
+                data.CaravanMaster,
+                data.Villager,
+            ];
+
+        // Which troops sit where: ids, upgrade order and captains, nothing else.
+        private static string Shape(TroopSaveData t) =>
+            t == null
+                ? "-"
+                : t.StringId
+                    + "["
+                    + Shape(t.Captain)
+                    + "|"
+                    + string.Join(",", (t.UpgradeTargets ?? []).Select(Shape))
+                    + "]";
+
+        // One troop's own data, without the troops below it.
+        private static string Flat(TroopSaveData t)
+        {
+            var below = t.UpgradeTargets;
+            t.UpgradeTargets = [];
+            try
+            {
+                return SaveDataCodec.Encode(t);
+            }
+            finally
+            {
+                t.UpgradeTargets = below;
+            }
+        }
+
+        private static HashSet<string> RebuiltIds(List<TroopSaveData> records)
+        {
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            void Walk(TroopSaveData t)
+            {
+                if (t == null)
+                    return;
+                ids.Add(t.StringId);
+                Walk(t.Captain);
+                foreach (var child in t.UpgradeTargets ?? [])
+                    Walk(child);
+            }
+            foreach (var record in records)
+                Walk(record);
+            return ids;
+        }
 
         private static HashSet<string> IdsOf(FactionSaveData data)
         {
