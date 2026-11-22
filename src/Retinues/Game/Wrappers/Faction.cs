@@ -66,6 +66,7 @@ namespace Retinues.Game.Wrappers
             _militiaRanged = null;
             _militiaRangedElite = null;
             _caravanGuard = null;
+            _veteranCaravanGuard = null;
             _caravanMaster = null;
             _villager = null;
             InvalidateCategoryCache();
