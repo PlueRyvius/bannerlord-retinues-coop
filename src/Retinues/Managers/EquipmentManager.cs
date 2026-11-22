@@ -44,6 +44,7 @@ namespace Retinues.Managers
             Skill = 1 << 0,
             MountT1 = 1 << 1,
             TierDifference = 1 << 2,
+            VisualAsset = 1 << 3,
         }
 
         /// <summary>
@@ -163,6 +164,9 @@ namespace Retinues.Managers
 
                 try
                 {
+                    if (item.IsDismembermentVisual)
+                        continue;
+
                     if (craftedOnly)
                     {
                         if (item.IsCrafted)
@@ -278,6 +282,9 @@ namespace Retinues.Managers
             if (item == null)
                 return true;
 
+            if (item.IsDismembermentVisual)
+                return false;
+
             // Item cannot even go into this slot.
             if (!item.Slots.Contains(slot))
                 return false;
@@ -369,6 +376,12 @@ namespace Retinues.Managers
         public static bool CanEquip(WCharacter troop, WItem item, out EquipLimitReason reasons)
         {
             reasons = EquipLimitReason.None;
+
+            if (item?.IsDismembermentVisual == true)
+            {
+                reasons = EquipLimitReason.VisualAsset;
+                return false;
+            }
 
             if (troop == null)
                 return false;
