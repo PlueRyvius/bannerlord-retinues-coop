@@ -70,8 +70,9 @@ namespace Retinues.Troops.Save
         public List<TroopSaveData> Heroes;
 
         // StringId of the clan or kingdom this data belongs to. Null in saves made before
-        // troops were stored per faction, and for culture data.
-        [SaveableField(18)]
+        // troops were stored per faction, and for culture data. Field 100, clear of the
+        // numbers Retinues adds in order.
+        [SaveableField(100)]
         public string FactionId;
 
         /// <summary>
