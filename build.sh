@@ -166,11 +166,17 @@ if [[ "$RUN_MAIN" == "true" && -f "$MAIN_PROJ" ]]; then
   print_header "=   Building ${MODULE}   ="
   dotnet build "$MAIN_PROJ" "${MSBUILD_CONFIG[@]}" "${MSBUILD_PROPS[@]}" -p:ModuleName="${MODULE}"
 
-  # Bannerlord Coop adapter (Retinues.Coop.dll), shipped next to the module's DLL
+  # Bannerlord Coop adapter (Retinues.Coop.dll), shipped next to the module's DLL. It compiles
+  # against Coop's own DLLs, so it is skipped where Coop is not installed.
   COOP_PROJ="$ROOT_DIR/src/${MODULE}.Coop/${MODULE}.Coop.csproj"
   if [[ -f "$COOP_PROJ" ]]; then
-    print_header "=   Building ${MODULE}.Coop   ="
-    dotnet build "$COOP_PROJ" "${MSBUILD_CONFIG[@]}" "${MSBUILD_PROPS[@]}" -p:ModuleName="${MODULE}"
+    COOP_BIN="$(dotnet msbuild "$COOP_PROJ" "${MSBUILD_PROPS[@]}" -getProperty:CoopBin 2>/dev/null | tr -d '\r')"
+    if [[ -f "$COOP_BIN/GameInterface.dll" ]]; then
+      print_header "=   Building ${MODULE}.Coop   ="
+      dotnet build "$COOP_PROJ" "${MSBUILD_CONFIG[@]}" "${MSBUILD_PROPS[@]}" -p:ModuleName="${MODULE}"
+    else
+      echo "Bannerlord Coop not found (${COOP_BIN:-no CoopBin}); skipping ${MODULE}.Coop. Pass -p:CoopBin=... to build it."
+    fi
   fi
 fi
 
