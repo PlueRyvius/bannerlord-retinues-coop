@@ -1,10 +1,5 @@
 [
   {
-    "id": "ret_list_toggle_convoy",
-    "EN": "Convoys",
-    "FR": "Convois"
-  },
-  {
     "id": "ret_acquire_fief_to_unlock",
     "EN": "Acquire a fief to unlock clan troops.",
     "BR": "Conquiste um feudo para desbloquear as tropas do clã.",
@@ -1507,6 +1502,54 @@
     "RU": "Недостаточно влияния",
     "SP": "Influencia insuficiente",
     "TR": "Yetersiz etki"
+  },
+  {
+    "id": "ret_coop_features_off",
+    "EN": "Retinues in co-op: doctrines, the global editor and edits that take time are off; the server keeps every troop.",
+    "BR": null,
+    "CNs": null,
+    "CNt": null,
+    "DE": null,
+    "FR": null,
+    "IT": null,
+    "JP": null,
+    "KO": null,
+    "PL": null,
+    "RU": null,
+    "SP": null,
+    "TR": null
+  },
+  {
+    "id": "ret_coop_import_export_off",
+    "EN": "Troop import and export are off in co-op.",
+    "BR": null,
+    "CNs": null,
+    "CNt": null,
+    "DE": null,
+    "FR": null,
+    "IT": null,
+    "JP": null,
+    "KO": null,
+    "PL": null,
+    "RU": null,
+    "SP": null,
+    "TR": null
+  },
+  {
+    "id": "ret_coop_not_ready",
+    "EN": "The server has not accepted Retinues on this game yet; troop edits are off.",
+    "BR": null,
+    "CNs": null,
+    "CNt": null,
+    "DE": null,
+    "FR": null,
+    "IT": null,
+    "JP": null,
+    "KO": null,
+    "PL": null,
+    "RU": null,
+    "SP": null,
+    "TR": null
   },
   {
     "id": "ret_copy_current",
@@ -3875,6 +3918,22 @@
     "RU": "Гражданские",
     "SP": "Civiles",
     "TR": "Siviller"
+  },
+  {
+    "id": "ret_list_toggle_convoy",
+    "EN": "Convoys",
+    "FR": "Convois",
+    "BR": null,
+    "CNs": null,
+    "CNt": null,
+    "DE": null,
+    "IT": null,
+    "JP": null,
+    "KO": null,
+    "PL": null,
+    "RU": null,
+    "SP": null,
+    "TR": null
   },
   {
     "id": "ret_list_toggle_elite",

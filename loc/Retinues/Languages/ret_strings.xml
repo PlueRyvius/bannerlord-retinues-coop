@@ -4,7 +4,6 @@
     <tag language="English" />
   </tags>
   <strings>
-    <string id="ret_list_toggle_convoy" text="Convoys" />
     <string
       id="ret_acquire_fief_to_unlock"
       text="Acquire a fief to unlock clan troops." />
@@ -287,6 +286,15 @@
     <string
       id="ret_convert_not_enough_influence_title"
       text="Not enough influence" />
+    <string
+      id="ret_coop_features_off"
+      text="Retinues in co-op: doctrines, the global editor and edits that take time are off; the server keeps every troop." />
+    <string
+      id="ret_coop_import_export_off"
+      text="Troop import and export are off in co-op." />
+    <string
+      id="ret_coop_not_ready"
+      text="The server has not accepted Retinues on this game yet; troop edits are off." />
     <string
       id="ret_copy_current"
       text="Copy Current" />
@@ -731,6 +739,9 @@
     <string
       id="ret_list_toggle_civilian"
       text="Civilians" />
+    <string
+      id="ret_list_toggle_convoy"
+      text="Convoys" />
     <string
       id="ret_list_toggle_elite"
       text="Elite" />
