@@ -296,6 +296,9 @@
       id="ret_coop_not_ready"
       text="The server has not accepted Retinues on this game yet; troop edits are off." />
     <string
+      id="ret_coop_purge_off"
+      text="Purge is off in co-op. Run it in single player on a copy of the save." />
+    <string
       id="ret_copy_current"
       text="Copy Current" />
     <string
