@@ -31,7 +31,7 @@ namespace Retinues.Mods.Coop
     public static class CoopBridge
     {
         /// <summary>Goes up whenever a message or payload changes shape. Both sides must agree.</summary>
-        public const int ProtocolVersion = 3;
+        public const int ProtocolVersion = 4;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                     Adapter-filled                     //
