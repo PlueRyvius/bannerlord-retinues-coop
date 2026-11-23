@@ -307,6 +307,11 @@ namespace Retinues.GUI.Editor.VM.Troop
                 return;
 
             var owner = State.Troop.BaseTroop;
+
+            // Co-op: the server changes it; the next snapshot refreshes this screen.
+            if (CoopBridge.Relay(CoopActions.Captain, owner.StringId, !owner.CaptainEnabled))
+                return;
+
             owner.CaptainEnabled = !owner.CaptainEnabled;
 
             // Refresh UI

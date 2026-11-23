@@ -26,7 +26,10 @@ campaign has their own custom troops. Single player plays exactly as in Retinues
 - **The server owns every troop.** When a player edits a troop in the editor, their game sends the edit to the
   server, which checks that the troop belongs to that player's clan or kingdom and makes the change as that player
   (gold, stock and roster changes included). The server then sends the changed troops back to the players. A player's
-  game never changes troops on its own, so no two games can disagree about them.
+  game never changes troops on its own, so no two games can disagree about them. That includes each equipment set's
+  battle rules and gender override, which the player's battles then spawn troops by.
+- **Capturing a ruler works.** A defeated kingdom ruler who reveals their secrets is taken and released by the
+  server, which unlocks their culture's vassal reward items for everyone and tells the player what was unlocked.
 - **The server's settings win.** Players use the host's Retinues settings for the session, whatever their own say.
 - **Old saves carry over.** A save from before this version loads with its troops given to the player's own clan and
   kingdom, as they were.
@@ -37,6 +40,7 @@ campaign has their own custom troops. Single player plays exactly as in Retinues
 - **The global editor** (editing culture and other factions' troops).
 - **Edits that take time**: equipment and training changes apply at once.
 - **Troop import and export.**
+- **Purge Custom Troop Data** (MCM): the server owns the troops, so purge a copy of the save in single player.
 - **The "copy your culture's troops or start from scratch?" choice** on a clan's first fief: the server cannot show
   it to a player, so a player's clan always starts from a copy of its culture's troop tree.
 

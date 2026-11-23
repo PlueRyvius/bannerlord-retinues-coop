@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Retinues.Features.Agents;
 using Retinues.Features.AutoJoin;
 using Retinues.Features.Unlocks;
+using Retinues.Features.Unlocks.Patches;
 using Retinues.Game;
 using Retinues.Game.Wrappers;
 using Retinues.Managers;
@@ -39,6 +41,9 @@ namespace Retinues.Mods.Coop
         public const string EnsureTroops = "ensureTroops"; // faction
         public const string Appearance = "appearance"; // troop, then CoopBridge.AppearanceArgs
         public const string UnlockCounts = "unlockCounts"; // "kill" | "discard", then item, count pairs
+        public const string Captain = "captain"; // base troop, enabled
+        public const string Policy = "policy"; // troop, set, PolicyToggleType values to flip ("2,3")
+        public const string RulerSecrets = "rulerSecrets"; // ruler hero
 
         // A single report cannot add more than this to one item's progress.
         private const int MaxReportedPerItem = 1000;
@@ -185,6 +190,51 @@ namespace Retinues.Mods.Coop
                             kills: Arg(a, 0) == "kill"
                         );
                         return (true, null);
+                    }
+                    case Captain:
+                    {
+                        var troop = OwnTroop(hero, a, 0);
+                        if (troop.IsCaptain)
+                            return (false, "Send the captain's base troop.");
+                        troop.CaptainEnabled = Bool(a, 1);
+                        return (true, null);
+                    }
+                    case Policy:
+                    {
+                        var troop = OwnTroop(hero, a, 0);
+                        var set = Int(a, 1);
+                        if (set < 0 || set >= troop.Loadout.Equipments.Count)
+                            return (false, "That equipment set does not exist.");
+                        foreach (var part in Arg(a, 2).Split([','], StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            var type = (PolicyToggleType)int.Parse(part, CultureInfo.InvariantCulture);
+                            if (!Enum.IsDefined(typeof(PolicyToggleType), type))
+                                return (false, "Unknown equipment set rule.");
+                            // Battle rules apply to battle sets only; the gender override to any set.
+                            if (type != PolicyToggleType.GenderOverride && troop.Loadout.Get(set).IsCivilian)
+                                return (false, "Civilian sets have no battle rules.");
+                            CombatAgentBehavior.Toggle(troop, set, type);
+                        }
+                        return (true, null);
+                    }
+                    case RulerSecrets:
+                    {
+                        var ruler = Hero.AllAliveHeroes.FirstOrDefault(h => h.StringId == Arg(a, 0));
+                        var captor = hero?.PartyBelongedTo?.Party;
+                        if (
+                            ruler == null
+                            || captor == null
+                            || !FactionManager.IsAtWarAgainstFaction(hero.MapFaction, ruler.MapFaction)
+                        )
+                            return (false, "That ruler cannot be made to reveal anything now.");
+                        var unlocked = VassalRewardSecretsPatch.RevealSecrets(
+                            ruler,
+                            captor,
+                            requireLocked: true
+                        );
+                        if (unlocked == null)
+                            return (false, "That ruler has no secrets left to reveal.");
+                        return (true, VassalRewardSecretsPatch.UnlockedText(ruler, unlocked));
                     }
                     default:
                         return (false, $"Unknown troop edit '{op}'.");

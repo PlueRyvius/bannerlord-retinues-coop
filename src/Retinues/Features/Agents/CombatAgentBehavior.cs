@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Retinues.Game.Wrappers;
 using Retinues.Mods;
 using TaleWorlds.CampaignSystem;
@@ -317,6 +318,53 @@ namespace Retinues.Features.Agents
 
         public static void OnRemoved(WCharacter troop, int removedIndex) =>
             Inst?.OnRemoveAlt(troop, removedIndex);
+
+        /* ━━━━━━━━ Co-op ━━━━━━━━━ */
+
+        // One bit per PolicyToggleType, for co-op snapshots.
+        private static int Bits(EquipmentPolicy p) =>
+            (p.FieldBattle ? 1 : 0)
+            | (p.NavalBattle ? 2 : 0)
+            | (p.SiegeDefense ? 4 : 0)
+            | (p.SiegeAssault ? 8 : 0)
+            | (p.GenderOverride ? 16 : 0);
+
+        private static EquipmentPolicy FromBits(int b) =>
+            new()
+            {
+                FieldBattle = (b & 1) != 0,
+                NavalBattle = (b & 2) != 0,
+                SiegeDefense = (b & 4) != 0,
+                SiegeAssault = (b & 8) != 0,
+                GenderOverride = (b & 16) != 0,
+            };
+
+        /// <summary>Co-op server: a troop's stored policies as (set index, bits), in set order.</summary>
+        internal static List<(int Set, int Bits)> PoliciesOf(string troopId)
+        {
+            var result = new List<(int, int)>();
+            if (Inst?._byTroop is { } all && troopId != null && all.TryGetValue(troopId, out var per))
+                foreach (var kv in per.OrderBy(kv => kv.Key))
+                    if (kv.Value != null)
+                        result.Add((kv.Key, Bits(kv.Value)));
+            return result;
+        }
+
+        /// <summary>
+        /// Co-op, a player's game: replaces a troop's policies with the server's. Returns true when they changed.
+        /// </summary>
+        internal static bool ApplyServerPolicies(string troopId, List<(int Set, int Bits)> policies)
+        {
+            if (Inst?._byTroop is not { } all || troopId == null)
+                return false;
+            if (PoliciesOf(troopId).SequenceEqual(policies))
+                return false;
+            if (policies.Count == 0)
+                all.Remove(troopId);
+            else
+                all[troopId] = policies.ToDictionary(p => p.Set, p => FromBits(p.Bits));
+            return true;
+        }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                         Helpers                        //

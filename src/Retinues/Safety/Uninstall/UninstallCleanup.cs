@@ -13,6 +13,9 @@ namespace Retinues.Safety.Uninstall
         internal static void Run(bool removeOnly)
         {
             if (Campaign.Current == null) throw new InvalidOperationException("Load a campaign first.");
+            // Co-op: the server owns every troop; purging one game would only break its copy.
+            if (Mods.Coop.CoopState.InSession)
+                throw new InvalidOperationException("Purge is off in co-op.");
             if (UninstallBehavior.HasFailed)
                 throw new InvalidOperationException("Reload the pre-uninstall backup before retrying cleanup.");
             if (Campaign.Current.SaveHandler?.IsSaving == true)

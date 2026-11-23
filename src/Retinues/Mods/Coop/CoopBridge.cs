@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Retinues.Configuration;
+using Retinues.Features.Agents;
 using Retinues.Features.AutoJoin;
 using Retinues.Features.Experience;
 using Retinues.Features.Stocks;
@@ -31,7 +32,7 @@ namespace Retinues.Mods.Coop
     public static class CoopBridge
     {
         /// <summary>Goes up whenever a message or payload changes shape. Both sides must agree.</summary>
-        public const int ProtocolVersion = 4;
+        public const int ProtocolVersion = 5;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                     Adapter-filled                     //
@@ -147,10 +148,10 @@ namespace Retinues.Mods.Coop
             SendAction?.Invoke(CoopActions.Appearance, [troop.StringId, .. args]);
         }
 
-        /// <summary>Client: the server refused or failed an edit.</summary>
+        /// <summary>Client: the server refused or failed an edit, or did one that has something to say.</summary>
         public static void ShowResult(bool ok, string message)
         {
-            if (!ok && !string.IsNullOrEmpty(message))
+            if (!string.IsNullOrEmpty(message))
                 Notify(message);
         }
 
@@ -263,6 +264,12 @@ namespace Retinues.Mods.Coop
                     {
                         snapshot.JoinCapTroopIds.Add(troop.StringId);
                         snapshot.JoinCaps.Add(AutoJoinBehavior.GetJoinCap(troop));
+                    }
+                    foreach (var (set, bits) in CombatAgentBehavior.PoliciesOf(troop.StringId))
+                    {
+                        snapshot.PolicyTroopIds.Add(troop.StringId);
+                        snapshot.PolicySets.Add(set);
+                        snapshot.PolicyBits.Add(bits);
                     }
                 }
                 result.Add((faction.StringId, SaveDataCodec.Encode(snapshot)));
@@ -398,13 +405,44 @@ namespace Retinues.Mods.Coop
                     snapshot.JoinCaps[i]
                 );
 
+            // Equipment set rules: the player's battles spawn troops by them, and the editor shows them.
+            var policies = new Dictionary<string, List<(int, int)>>(StringComparer.Ordinal);
+            for (
+                int i = 0;
+                i < snapshot.PolicyTroopIds.Count
+                    && i < snapshot.PolicySets.Count
+                    && i < snapshot.PolicyBits.Count;
+                i++
+            )
+            {
+                if (!policies.TryGetValue(snapshot.PolicyTroopIds[i], out var list))
+                    policies[snapshot.PolicyTroopIds[i]] = list = [];
+                list.Add((snapshot.PolicySets[i], snapshot.PolicyBits[i]));
+            }
+            var policyChanged = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var troop in wrapper.Troops)
+                if (
+                    troop?.IsCustom == true
+                    && CombatAgentBehavior.ApplyServerPolicies(
+                        troop.StringId,
+                        policies.TryGetValue(troop.StringId, out var p) ? p : []
+                    )
+                )
+                    policyChanged.Add(troop.StringId);
+
             // What the server holds is now what this game shows; don't echo it back.
             foreach (var troop in wrapper.Troops)
                 if (troop?.IsCustom == true)
                     _appearanceSent[troop.StringId] = string.Join("\u001f", AppearanceArgs(troop));
 
             var applyMs = watch.ElapsedMilliseconds;
-            TroopsChanged?.Invoke(wrapper, changed == null ? null : RebuiltIds(changed));
+            HashSet<string> rebuilt = null;
+            if (changed != null)
+            {
+                rebuilt = RebuiltIds(changed);
+                rebuilt.UnionWith(policyChanged);
+            }
+            TroopsChanged?.Invoke(wrapper, rebuilt);
             Log.Debug(
                 $"Co-op: loaded '{factionId}' from the server: {incoming.Count} troop(s), "
                     + (changed == null ? "all rebuilt" : $"{changed.Count} rebuilt")
