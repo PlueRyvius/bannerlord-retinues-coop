@@ -31,7 +31,7 @@ namespace Retinues.Mods.Coop
     public static class CoopBridge
     {
         /// <summary>Goes up whenever a message or payload changes shape. Both sides must agree.</summary>
-        public const int ProtocolVersion = 3;
+        public const int ProtocolVersion = 4;
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
         //                     Adapter-filled                     //
@@ -91,6 +91,13 @@ namespace Retinues.Mods.Coop
             }
             ApplyForcedSettings();
             Log.Info($"Co-op: using the server's {lines?.Count ?? 0} Retinues settings.");
+            // These are off for everyone in co-op; their buttons hide, so say why once per join.
+            Notify(
+                L.S(
+                    "coop_features_off",
+                    "Retinues in co-op: doctrines, the global editor and edits that take time are off; the server keeps every troop."
+                )
+            );
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ //
@@ -513,6 +520,7 @@ namespace Retinues.Mods.Coop
                 data.MilitiaRanged,
                 data.MilitiaRangedElite,
                 data.CaravanGuard,
+                data.VeteranCaravanGuard,
                 data.CaravanMaster,
                 data.Villager,
             ];
@@ -574,22 +582,7 @@ namespace Retinues.Mods.Coop
                     Walk(child);
             }
 
-            foreach (
-                var root in new[]
-                {
-                    data.RetinueElite,
-                    data.RetinueBasic,
-                    data.RootElite,
-                    data.RootBasic,
-                    data.MilitiaMelee,
-                    data.MilitiaMeleeElite,
-                    data.MilitiaRanged,
-                    data.MilitiaRangedElite,
-                    data.CaravanGuard,
-                    data.CaravanMaster,
-                    data.Villager,
-                }
-            )
+            foreach (var root in Roots(data))
                 Walk(root);
             return ids;
         }
@@ -608,7 +601,8 @@ namespace Retinues.Mods.Coop
                 _ => value.ToString(),
             };
 
-        private static void Notify(string text)
+        /// <summary>Shows a yellow message on this game, as Retinues' co-op notices are.</summary>
+        public static void Notify(string text)
         {
             try
             {

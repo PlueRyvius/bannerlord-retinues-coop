@@ -9,8 +9,11 @@
     <RootNamespace>Retinues.Coop</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <!-- Bannerlord Coop, Steam Workshop item 3770450698 (override with -p:CoopBin=...). -->
-    <CoopBin Condition="'$(CoopBin)' == ''">$(BannerlordGameDir)\..\..\workshop\content\261550\3770450698\bin\Win64_Shipping_Client</CoopBin>
+    <!-- Bannerlord Coop: Steam Workshop item 3770450698, else a build installed in the game's
+         Modules\Coop (Coop's nightlies install there). Override with -p:CoopBin=... -->
+    <CoopWorkshopBin>$(BannerlordGameDir)\..\..\workshop\content\261550\3770450698\bin\Win64_Shipping_Client</CoopWorkshopBin>
+    <CoopBin Condition="'$(CoopBin)' == '' And Exists('$(CoopWorkshopBin)\GameInterface.dll')">$(CoopWorkshopBin)</CoopBin>
+    <CoopBin Condition="'$(CoopBin)' == ''">$(BannerlordGameDir)\Modules\Coop\bin\Win64_Shipping_Client</CoopBin>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Retinues\Retinues.csproj" Private="false" />

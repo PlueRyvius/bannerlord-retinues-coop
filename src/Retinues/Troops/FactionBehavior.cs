@@ -45,6 +45,7 @@ namespace Retinues.Troops
         /// </summary>
         public override void SyncData(IDataStore ds)
         {
+            if (Safety.Uninstall.UninstallBehavior.IsPrepared) return;
             ds.SyncData("Retinues_ClanTroops", ref _clanTroops);
             ds.SyncData("Retinues_KingdomTroops", ref _kingdomTroops);
             ds.SyncData("Retinues_ClanTroopsByFaction", ref _clanTroopsByFaction);
@@ -266,6 +267,7 @@ namespace Retinues.Troops
             Add(faction.MilitiaRanged);
             Add(faction.MilitiaRangedElite);
             Add(faction.CaravanGuard);
+            Add(faction.VeteranCaravanGuard);
             Add(faction.CaravanMaster);
             Add(faction.Villager);
         }

@@ -28,6 +28,7 @@ namespace Retinues.Mods.Coop
         public const string Equip = "equip"; // troop, set, slot, item ("" = none), allowPurchase
         public const string Unequip = "unequip"; // troop, set, slot
         public const string DeleteSet = "deleteSet"; // troop, set
+        public const string CreateSet = "createSet"; // troop, civilian, copy of set ("" = empty)
         public const string Paste = "paste"; // srcTroop, srcSet, dstTroop, dstSet, slots ("" = all, else "0,1,..")
         public const string Skill = "skill"; // troop, skill, increment
         public const string AddUpgrade = "addUpgrade"; // troop, name
@@ -74,6 +75,24 @@ namespace Retinues.Mods.Coop
                     {
                         var res = EquipmentManager.TryDeleteSet(OwnTroop(hero, a, 0), Int(a, 1));
                         return (res.Ok, res.Ok ? null : "Could not delete that equipment set.");
+                    }
+                    case CreateSet:
+                    {
+                        var troop = OwnTroop(hero, a, 0);
+                        var created = Bool(a, 1)
+                            ? troop.Loadout.CreateCivilianSet()
+                            : troop.Loadout.CreateBattleSet();
+                        if (created == null)
+                            return (false, "Could not create that equipment set.");
+                        // A copy of another set is free, as in the editor.
+                        if (Arg(a, 2) != "")
+                        {
+                            var source = troop.Loadout.Get(Int(a, 2));
+                            foreach (var slot in WEquipment.Slots)
+                                if (source?.Get(slot) is { } item)
+                                    created.SetItem(slot, item);
+                        }
+                        return (true, null);
                     }
                     case Paste:
                     {

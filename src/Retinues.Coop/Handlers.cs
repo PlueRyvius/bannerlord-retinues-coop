@@ -138,6 +138,15 @@ namespace Retinues.Coop.Handlers
                 Log.Warn(
                     $"Co-op: the server did not accept this game ({reply.Detail}; server protocol {reply.ProtocolVersion}, here {CoopBridge.ProtocolVersion}). Troop edits are off."
                 );
+                if (!refused)
+                    GameThread.RunSafe(() =>
+                        CoopBridge.Notify(
+                            L.S(
+                                "coop_refused",
+                                "The server's Retinues does not match this game's; troop edits are off. Install the same Retinues as the server."
+                            )
+                        )
+                    );
                 refused = true;
                 return;
             }

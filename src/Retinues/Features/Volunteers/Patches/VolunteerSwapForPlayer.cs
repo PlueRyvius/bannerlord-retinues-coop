@@ -99,7 +99,7 @@ namespace Retinues.Features.Volunteers.Patches
         /// <summary>
         /// Restore the volunteers for the settlement if a snapshot exists (wrapper-based).
         /// </summary>
-        private static void RestoreSnapshot()
+        internal static void RestoreSnapshot()
         {
             if (_snapshot == null || _settlement == null)
                 return;
@@ -226,6 +226,8 @@ namespace Retinues.Features.Volunteers.Patches
         /// </summary>
         private static void TryBeginSwap()
         {
+            if (Safety.Uninstall.UninstallBehavior.IsPrepared)
+                return;
             if (CoopState.IsClient)
                 return; // Co-op: the server runs this for everyone
 

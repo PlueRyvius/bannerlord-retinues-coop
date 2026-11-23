@@ -1415,6 +1415,17 @@ namespace Retinues.GUI.Editor.VM.Equipment
             if (troop == null)
                 return;
 
+            // Co-op: the server makes the set; it arrives with the server's next snapshot.
+            if (
+                Mods.Coop.CoopBridge.Relay(
+                    Mods.Coop.CoopActions.CreateSet,
+                    troop.StringId,
+                    EditCivilianSets,
+                    ""
+                )
+            )
+                return;
+
             var created = EditCivilianSets
                 ? troop.Loadout.CreateCivilianSet()
                 : troop.Loadout.CreateBattleSet();
@@ -1432,6 +1443,16 @@ namespace Retinues.GUI.Editor.VM.Equipment
         private void ExecuteCreateSet_CopyFlow(WCharacter troop, WEquipment src)
         {
             if (troop == null || src == null)
+                return;
+
+            if (
+                Mods.Coop.CoopBridge.Relay(
+                    Mods.Coop.CoopActions.CreateSet,
+                    troop.StringId,
+                    EditCivilianSets,
+                    src.Index
+                )
+            )
                 return;
 
             var plan = CollectCopyPlan(src);
