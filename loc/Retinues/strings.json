@@ -1552,6 +1552,22 @@
     "TR": null
   },
   {
+    "id": "ret_coop_purge_off",
+    "EN": "Purge is off in co-op. Run it in single player on a copy of the save.",
+    "BR": null,
+    "CNs": null,
+    "CNt": null,
+    "DE": null,
+    "FR": null,
+    "IT": null,
+    "JP": null,
+    "KO": null,
+    "PL": null,
+    "RU": null,
+    "SP": null,
+    "TR": null
+  },
+  {
     "id": "ret_copy_current",
     "EN": "Copy Current",
     "BR": "Copiar Atual",
