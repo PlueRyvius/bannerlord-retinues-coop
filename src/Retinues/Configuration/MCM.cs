@@ -601,6 +601,19 @@ namespace Retinues.Configuration
                                                 return;
                                             }
 
+                                            // Co-op: the server owns every troop. Purging a player's game would
+                                            // only break its copy, and the server would send the troops back.
+                                            if (Mods.Coop.CoopState.InSession)
+                                            {
+                                                Log.Message(
+                                                    L.S(
+                                                        "coop_purge_off",
+                                                        "Purge is off in co-op. Run it in single player on a copy of the save."
+                                                    )
+                                                );
+                                                return;
+                                            }
+
                                             // Irreversible confirmation
                                             ConfirmTroopReplace(
                                                 L.S(

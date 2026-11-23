@@ -4,12 +4,14 @@ using HarmonyLib;
 using Retinues.Game.Events;
 using Retinues.Game.Wrappers;
 using Retinues.GUI.Helpers;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Actions;
 using TaleWorlds.CampaignSystem.CampaignBehaviors;
 using TaleWorlds.CampaignSystem.Conversation;
 using TaleWorlds.CampaignSystem.Party;
+using TaleWorlds.Localization;
 
 namespace Retinues.Features.Unlocks.Patches
 {
@@ -18,7 +20,7 @@ namespace Retinues.Features.Unlocks.Patches
     /// force them to reveal the secrets of their vassal reward items.
     /// </summary>
     [HarmonyPatch(typeof(LordConversationsCampaignBehavior))]
-    internal static class VassalRewardSecretsPatch
+    public static class VassalRewardSecretsPatch
     {
         private const string PlayerLineId = "lord_defeat_vassal_secrets";
         private const string PlayerLineToken = "defeated_lord_answer";
@@ -120,8 +122,49 @@ namespace Retinues.Features.Unlocks.Patches
             if (ruler == null)
                 return;
 
-            if (ruler.MapFaction is not Kingdom kingdom)
+            // Co-op, a player's game: only the server may take a lord prisoner or unlock items, so it does both.
+            // The answer it sends back says what was unlocked.
+            if (CoopState.IsClient)
+            {
+                Campaign.Current.CurrentConversationContext = ConversationContext.Default;
+                CoopBridge.Relay(CoopActions.RulerSecrets, ruler.StringId);
                 return;
+            }
+
+            var unlockedItems = RevealSecrets(ruler, PartyBase.MainParty, requireLocked: false);
+            if (unlockedItems == null || unlockedItems.Count == 0)
+                return;
+
+            // Play sound when the popup appears
+            Sound.Play2D(Sound.Education);
+
+            // Show popup
+            Notifications.Popup(
+                L.T("vassal_secrets_title", "Secrets Unlocked"),
+                new TextObject(UnlockedText(ruler, unlockedItems))
+            );
+        }
+
+        /// <summary>"You have unlocked the secrets of: ...", for the items a ruler revealed.</summary>
+        public static string UnlockedText(Hero ruler, List<WItem> unlockedItems) =>
+            L.T("vassal_secrets_unlocked_body", "You have unlocked the secrets of: {ITEMS}.")
+                .SetTextVariable("CULTURE", (ruler?.MapFaction as Kingdom)?.Culture?.Name)
+                .SetTextVariable("ITEMS", string.Join(", ", unlockedItems.Select(i => i.Name)))
+                .ToString();
+
+        /// <summary>
+        /// Unlocks the vassal reward items of a kingdom ruler's culture, then has the captor take the ruler
+        /// prisoner and release them at once, for the same relation penalty and events as a capture. Returns the
+        /// items unlocked, or null when the hero is not a ruler with such items (or, with requireLocked, when
+        /// none is still locked); then nothing happens.
+        /// </summary>
+        public static List<WItem> RevealSecrets(Hero ruler, PartyBase captor, bool requireLocked)
+        {
+            if (ruler?.IsAlive != true || ruler.IsPrisoner)
+                return null;
+
+            if (ruler.MapFaction is not Kingdom kingdom || kingdom.Leader != ruler)
+                return null;
 
             var culture = kingdom.Culture;
             if (
@@ -129,7 +172,16 @@ namespace Retinues.Features.Unlocks.Patches
                 || culture.VassalRewardItems == null
                 || culture.VassalRewardItems.Count == 0
             )
-                return;
+                return null;
+
+            if (
+                requireLocked
+                && !culture
+                    .VassalRewardItems.Where(i => i != null)
+                    .Select(i => new WItem(i))
+                    .Any(wi => !wi.IsUnlocked && wi.IsVassalRewardItem)
+            )
+                return null;
 
             List<WItem> unlockedItems = [];
 
@@ -161,10 +213,11 @@ namespace Retinues.Features.Unlocks.Patches
             try
             {
                 // Make sure we are in a sane context.
-                Campaign.Current.CurrentConversationContext = ConversationContext.Default;
+                if (Campaign.Current.CurrentConversationContext == ConversationContext.CapturedLord)
+                    Campaign.Current.CurrentConversationContext = ConversationContext.Default;
 
                 // Take prisoner -> fires OnPrisonerTaken and related penalties.
-                TakePrisonerAction.Apply(PartyBase.MainParty, ruler);
+                TakePrisonerAction.Apply(captor, ruler);
 
                 // 3) Immediately release them as if let go after battle.
                 EndCaptivityAction.ApplyByReleasedAfterBattle(ruler);
@@ -174,22 +227,7 @@ namespace Retinues.Features.Unlocks.Patches
                 Log.Exception(e);
             }
 
-            if (unlockedItems.Count == 0)
-                return;
-
-            // 4) Notify the player.
-            string itemList = string.Join(", ", unlockedItems.Select(i => i.Name));
-
-            // Play sound when the popup appears
-            Sound.Play2D(Sound.Education);
-
-            // Show popup
-            Notifications.Popup(
-                L.T("vassal_secrets_title", "Secrets Unlocked"),
-                L.T("vassal_secrets_unlocked_body", "You have unlocked the secrets of: {ITEMS}.")
-                    .SetTextVariable("CULTURE", culture?.Name)
-                    .SetTextVariable("ITEMS", itemList)
-            );
+            return unlockedItems;
         }
     }
 }

@@ -25,5 +25,16 @@ namespace Retinues.Mods.Coop
 
         [SaveableField(5)]
         public List<int> JoinCaps = [];
+
+        // Where each equipment set may be used and its gender override (CombatAgentBehavior), one entry per
+        // stored (troop, set): the troop id, the set index and the policy bits.
+        [SaveableField(6)]
+        public List<string> PolicyTroopIds = [];
+
+        [SaveableField(7)]
+        public List<int> PolicySets = [];
+
+        [SaveableField(8)]
+        public List<int> PolicyBits = [];
     }
 }

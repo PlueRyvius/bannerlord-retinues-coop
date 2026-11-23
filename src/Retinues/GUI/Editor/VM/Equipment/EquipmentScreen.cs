@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Bannerlord.UIExtenderEx.Attributes;
 using Retinues.Doctrines;
@@ -12,6 +13,7 @@ using Retinues.GUI.Editor.VM.Equipment.Panel;
 using Retinues.GUI.Helpers;
 using Retinues.Managers;
 using Retinues.Mods;
+using Retinues.Mods.Coop;
 using Retinues.Utils;
 using TaleWorlds.Core;
 using TaleWorlds.Core.ViewModelCollection.Information;
@@ -847,10 +849,24 @@ namespace Retinues.GUI.Editor.VM.Equipment
             OnPropertyChanged(nameof(ShowCraftedHint));
         }
 
+        /// <summary>
+        /// Co-op, a player's game: asks the server to flip these rules of the shown set and returns true; the next
+        /// snapshot refreshes this screen. Returns false everywhere else.
+        /// </summary>
+        private bool RelayPolicy(params PolicyToggleType[] types) =>
+            CoopBridge.Relay(
+                CoopActions.Policy,
+                State.Troop.StringId,
+                State.Equipment.Index,
+                string.Join(",", types.Select(t => ((int)t).ToString(CultureInfo.InvariantCulture)))
+            );
+
         [DataSourceMethod]
         public void ExecuteToggleEnableSetForFieldBattle()
         {
             if (!CanToggleEnableForFieldBattle)
+                return;
+            if (RelayPolicy(PolicyToggleType.FieldBattle))
                 return;
             CombatAgentBehavior.Toggle(
                 State.Troop,
@@ -866,6 +882,8 @@ namespace Retinues.GUI.Editor.VM.Equipment
         {
             if (!CanToggleEnableForNavalBattle)
                 return;
+            if (RelayPolicy(PolicyToggleType.NavalBattle))
+                return;
             CombatAgentBehavior.Toggle(
                 State.Troop,
                 State.Equipment.Index,
@@ -879,6 +897,8 @@ namespace Retinues.GUI.Editor.VM.Equipment
         public void ExecuteToggleEnableSetForSiegeDefense()
         {
             if (!CanToggleEnableForSiegeDefense)
+                return;
+            if (RelayPolicy(PolicyToggleType.SiegeDefense))
                 return;
             CombatAgentBehavior.Toggle(
                 State.Troop,
@@ -894,6 +914,8 @@ namespace Retinues.GUI.Editor.VM.Equipment
         {
             if (!CanToggleEnableForSiegeAssault)
                 return;
+            if (RelayPolicy(PolicyToggleType.SiegeAssault))
+                return;
             CombatAgentBehavior.Toggle(
                 State.Troop,
                 State.Equipment.Index,
@@ -907,6 +929,8 @@ namespace Retinues.GUI.Editor.VM.Equipment
         public void ExecuteToggleEnableSetForSiege()
         {
             if (!CanToggleEnableForSiegeAssault && !CanToggleEnableForSiegeDefense)
+                return;
+            if (RelayPolicy(PolicyToggleType.SiegeAssault, PolicyToggleType.SiegeDefense))
                 return;
             CombatAgentBehavior.Toggle(
                 State.Troop,
@@ -930,6 +954,8 @@ namespace Retinues.GUI.Editor.VM.Equipment
             var troop = State.Troop;
             var eq = State.Equipment;
             if (troop == null || eq == null)
+                return;
+            if (RelayPolicy(PolicyToggleType.GenderOverride))
                 return;
 
             CombatAgentBehavior.Toggle(troop, eq.Index, PolicyToggleType.GenderOverride);
